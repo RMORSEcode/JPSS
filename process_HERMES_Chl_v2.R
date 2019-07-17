@@ -1,25 +1,3 @@
- # NOTE 20190710
- # These are not yet working -- use ftp_download.py in dropbox folder to download HERMES GlobColour data
-#  require(RCurl)
-# roms_file='C:/Users/ryan.morse/Desktop/NEUS Atl files/HYDRO/roms2010all.nc'
-# 
-# file_db <- bind_rows(lapply(roms_file, function(x) {
-#   nc <- NetCDF(x)
-#   tlen <- filter(nc$dimension, name == "ocean_time")$len
-#   tibble(fullname = rep(x, tlen), band_level = seq_len(tlen))
-# }))
-
-
-# url = "ftp://ftp_hermes:hermes%@ftp.hermes.acri.fr/345576024" #ftp://ftp.ncbi.nlm.nih.gov/geo/series/GSE1nnn/GSE1297/suppl/"
-# filenames = getURL(url, ftp.use.epsv = T, dirlistonly = TRUE)
-# filenames <- strsplit(filenames, "\r\n")
-# filenames = unlist(filenames)
-# filenames
-# [1] "filelist.txt"    "GSE1297_RAW.tar"
-# for (filename in filenames) {
-#   download.file(paste(url, filename, sep = ""), paste(getwd(), "/", filename,
-#                                                       sep = ""))
-# }
 # 
 # url<- "ftp://ftp.hermes.acri.fr/345576024"
 # filenames <- getURL(url, userpwd="ftp_hermes:hermes%", ftp.use.epsv = FALSE, dirlistonly = TRUE) #reading filenames from ftp-server
@@ -27,8 +5,7 @@
 # con <-  getCurlHandle( ftp.use.epsv = FALSE, userpwd="ftp_hermes:hermes%")
 # setwd('C:/Users/ryan.morse/Desktop/Iomega Drive Backup 20171012/1 RM/3 gridded data/HERMES_daily')
 # mapply(function(x,y) writeBin(getBinaryURL(x, curl = con, dirlistonly = FALSE), y), x = filenames, y = paste("C:\\temp\\",destnames, sep = "")) #writing all zipped files in one directory
-# 
-# 
+#  
 # devtools::install_github("skgrange/threadr")
 # 
 # library(threadr)
@@ -46,6 +23,8 @@ library(mgcv)
 library(sp)
 library(maptools)
 library(marmap)
+library(maps)
+library(mapdata)
 library(rgeos)
 library(ncdf4)
 library(abind)
@@ -76,10 +55,31 @@ extract_calc=function(x, shp){
 }
 
 
+### Function to plot a raster for the NES area and set scale
+plotChlRaster=function(data, i, maxV, limit=F){
+  rasterX=data[[i]]
+  rng2=cellStats(rasterX, range)
+  if (limit == 1){
+    max_abolute_value=maxV #set limit manually with maxV input
+    rng=c(0, max_abolute_value, rng2[2])
+  }
+  else {
+    max_abolute_value=ceiling(rng2[2]) #round up actual max val
+    rng=c(0, max_abolute_value)
+  }
+  color=rev(brewer.pal(11, "Spectral"))
+  br <- seq(0, max_abolute_value, length.out=9) 
+     arg=list(at=rng, labels=round(rng,1))
+  plot(rasterX, col=color, breaks=br,axis.args=arg, xlim=c(-77,-64),ylim=c(35,45),
+       las=1, legend=F, main=av.dates[[i]])
+  map("worldHires", xlim=c(-77,-64),ylim=c(35,45), fill=T,border=0,col="gray", add=T)
+  plot(rasterX, legend.only=T, col=color,breaks=br,axis.args=arg, legend.shrink=0.5,
+       smallplot=c(0.19,0.21, 0.6,0.80) )
+}
 
-
-
-
+# testing...
+plotChlRaster(chl.av, 5, 5, limit=T)
+plotChlRaster(chl.av, 5, 20, limit=F)
 
 
 # ## load shapefiles
@@ -118,50 +118,46 @@ test=data.frame(files.chl1.ave,stringsAsFactors = FALSE); colnames(test)='chl1'
 test2=data.frame(files.chl1.avw,stringsAsFactors = FALSE); colnames(test2)='chl1'
 files.chl1.av=rbind(test, test2); rm(test); rm(test2)
 ## Select just GSM chl1 product filenames
-files.chl1.gsm=data.frame(files.chl1[grep(files.chl1, pattern=('_GSM-'))]);colnames(files.chl1.gsm)='gsm' #GSM merge of multiple satellite data
+files.chl1.gsm=data.frame(files.chl1[grep(files.chl1, pattern=('_GSM-'))],stringsAsFactors = FALSE);colnames(files.chl1.gsm)='gsm' #GSM merge of multiple satellite data
 
 ## HERMES chl2 product files (coastal, limited data)
-files.chl2=data.frame(list.files(wd, pattern=('_CHL2_MO')));colnames(files.chl2)='chl2' #HERMES chl2, only for MER and OLA sats (limited data)
-
+files.chl2=list.files(wd, pattern=('_CHL2_MO')) #HERMES chl2, only for MER and OLA sats (limited data)
+files.chl2=data.frame(files.chl2, stringsAsFactors = FALSE);colnames(files.chl2)='chl2'
 ## HERMES OC5 product filenames
-files.oc5=data.frame(list.files(wd, pattern=('CHL-OC5_')));colnames(files.oc5)='oc5' #HERMES oc5 algorithm for coastal waters
+files.oc5=list.files(wd, pattern=('CHL-OC5_')) #HERMES oc5 algorithm for coastal waters
+files.oc5=data.frame(files.oc5, stringsAsFactors = F);colnames(files.oc5)='oc5' #HERMES oc5 algorithm for coastal waters
 
 ### sort data lists to make sure it is in chronological order
-test1=sort(files.chl1.av[,1])
-test2=sort(files.chl1.gsm[,1])
-test3=sort(files.oc5[,1])
+av.files=sort(files.chl1.av[,1])
+gsm.files=sort(files.chl1.gsm[,1])
+oc5.files=sort(files.oc5[,1])
+chl2.files=sort(files.chl2[,1])
 
+#get dates
+MM=rep(NA, length(files.GSM))
+YY=rep(NA, length(files.GSM))
+v=strsplit(nc1$filename,split="_", fixed=TRUE)
+dt=strsplit(v[[1]][2],split='-',fixed=T)[[1]][1]
+MM[i]=as.numeric(substr(dt,5,6))
+YY[i]=as.numeric(substr(dt,1,4))
+
+av.dates=list()
+for (i in 1:length(av.files)){
+  av.dates[[i]]=strsplit(av.files[i],split="_", fixed=TRUE)[[1]][2]
+}
 
 ### create raster stacks of data 
 chl.av=nc2raster(files.chl1.av[,1], 'CHL1_mean')
 chl.gsm=nc2raster(files.chl1.gsm[,1], 'CHL1_mean')
 chl.oc5=nc2raster(files.oc5[,1], 'CHL1_mean')
 
+i=20
+plot(chl.av[[i]], main=test1[i])
 
 
-#get date details from first nc file...
-# MM=rep(NA, length(files.GSM))
-# YY=rep(NA, length(files.GSM))
-# # CHL=array(NA, dim=c())
-# for (i in 1:length(files.GSM)){
-#   nc1=nc_open(files.GSM[i])
-#   v=strsplit(nc1$filename,split="_", fixed=TRUE)
-#   dt=strsplit(v[[1]][2],split='-',fixed=T)[[1]][1]
-#   MM[i]=as.numeric(substr(dt,5,6)) #month
-#   YY[i]=as.numeric(substr(dt,1,4))
-#   lon=ncvar_get(nc1, 'lon')
-#   lat=ncvar_get(nc1, 'lat')
-#   chl=ncvar_get(nc1, 'CHL1_mean')
-#   # dim(chl)
-#   colnames(chl)=lat
-#   rownames(chl)=lon
-#   nc_close(nc1)
-#   # CHL[,,i]=chl
-# }
-# lat.val=as.numeric(lat)
-# lon.val=as.numeric(colnames(CHL[,,1]))
-# month.val=MM
-# year.val=YY
+
+
+
 
 ## fake some year data to make old code work:
 sdat=as.data.frame(matrix(NA, 41, 1))
@@ -223,10 +219,6 @@ save(shp.dat, file=mypath)
 
 
 
-#load Chl from HERMES merged product - older set used for plankton analysis (see below for update)
-# load("G:/1 RM/2 Plankton Spatial Plots/data/1997-2015 - chl/Spring_Chl_1998_2015_shp.dat.rdata")
-# plot(shp.dat[[1]])
-# lines(test@polygons[[1]]@Polygons[[1]]@coords, col='blue')
 # 
 # v2=list()
 # for(i in 1:dim(shp.dat)[3]){
@@ -240,23 +232,7 @@ save(shp.dat, file=mypath)
 # v1=extract(shp.dat[[1]], neus.shp)
 # v1m=lapply(v1, function(x) mean(x, na.rm=T))
 # 
-# ### Spring time series trends by box (can use for calibration later)
-# year=seq(1998, 2015, 1)
-# for (i in 1:nrow(m)){
-#   plot(m[i,]~year, type='l', ylim=c(0, 8), col='gray80', ylab='', xlab='')
-#   par(new=T)
-# }
-# plot(colMeans(m, na.rm=T)~year, type='l', col='blue', ylim=c(0,8), lwd=2)
-# par(new=F)
 
-### load monthly mean 25 KM Chl 1997(9-12 only) through 2015(1-4 only) = 212 months (17 years + 8 months) -> (OLD)
-#20170610 - added new data from HERMES GlobColour, now all monthly from 1998-2016 included
-# load("G:/1 RM/3 gridded data/HERMES merged CHL 25km/monthly_chl_hermes_merged_gsm_25km.rdata")
-setwd('G:/1 RM/3 gridded data/HERMES merged CHL 25km/1998_2016')
-setwd('C:/Users/ryan.morse/Desktop/Iomega Drive Backup 20171012/1 RM/3 gridded data/HERMES merged CHL 25km/1998_2016')
-wd=getwd()
-files.AV=list.files(wd, pattern=('_AV-'))
-files.GSM=list.files(wd, pattern=('_GSM-'))
 
 files.01GSM=list.files(wd, pattern='0101');files.01GSM=grep(files.01GSM, pattern='_GSM-', inv=F, value=T)
 ii=data.frame(files.01GSM)
@@ -296,8 +272,7 @@ files.12GSM=list.files(wd, pattern='1201');files.12GSM=grep(files.12GSM, pattern
 ii=data.frame(files.12GSM)
 files.12GSM=files.12GSM[c(1:14,16:20)] 
 
-### function to rasterize all files in a list, stack raster and return raster stack
-### RM 20170609
+
 
 
 # s=stack()
@@ -306,108 +281,4 @@ files.12GSM=files.12GSM[c(1:14,16:20)]
 #   s=stack(s, r)
 # }
 
-### raster stacks of monthly data
-r1=nc2raster(files.01GSM)
-r2=nc2raster(files.02GSM)
-r3=nc2raster(files.03GSM)
-r4=nc2raster(files.04GSM)
-r5=nc2raster(files.05GSM)
-r6=nc2raster(files.06GSM)
-r7=nc2raster(files.07GSM)
-r8=nc2raster(files.08GSM)
-r9=nc2raster(files.09GSM)
-r10=nc2raster(files.10GSM)
-r11=nc2raster(files.11GSM)
-r12=nc2raster(files.12GSM)
-
-### Function to extract data using a shapefile
-extractMonths=function(x, shp){
-  v2=list()
-  for(i in 1:dim(x)[3]){
-    v=extract(x[[i]], shp)
-    v1=lapply(v, function(xx) mean(xx, na.rm=T))
-    v2[i]=list(v1)
-  }
-  m=matrix(unlist(v2), ncol=dim(x)[3], nrow=30) # box 0-29 =rows, years =cols
-  colnames(m)=seq(1998, 2016, by=1)
-  rownamse(m)=
-    return(m)
-}
-
-### returns Mean Chl per box (0-29, rows), by year from 1998-2016 (columns) for month indicated (mg chl a /m3)
-Jan.chl=extractMonths(r1, neus.shp)
-Feb.chl=extractMonths(r2, neus.shp)
-Mar.chl=extractMonths(r3, neus.shp)
-Apr.chl=extractMonths(r4, neus.shp)
-May.chl=extractMonths(r5, neus.shp)
-Jun.chl=extractMonths(r6, neus.shp)
-Jul.chl=extractMonths(r7, neus.shp)
-Aug.chl=extractMonths(r8, neus.shp)
-Sep.chl=extractMonths(r9, neus.shp)
-Oct.chl=extractMonths(r10, neus.shp)
-Nov.chl=extractMonths(r11, neus.shp)
-Dec.chl=extractMonths(r12, neus.shp)
-
-# All.chl=nc2raster(files.GSM)
-
-All.chl.av=nc2raster(files.chl1.av)
-All.chl.gsm=nc2raster(files.chl1.gsm)
-All.chl.oc5=nc2raster(files.chl1.oc5)
-
-Chl.time=seq(ISOdate(1998,1,15), ISOdate(2016,12,15), "month") # monthly mean values 1998-2016
-# dimnames(All.chl[,,3])=Chl.time
-
-NEUSplotChlRaster=function(data, i, maxV){
-  rasterX=data[[i]]
-  col5=colorRampPalette(c('blue','white','red'))
-  max_abolute_value=maxV #what is the maximum absolute value of raster?
-  color_levels=20
-  br <- seq(0, max_abolute_value, length.out=color_levels+1) 
-  rng2=cellStats(rasterX, range)
-  rng=c(0, maxV, rng2[2])
-  arg=list(at=rng, labels=round(rng,2))
-  plot(rasterX, col=col5(length(br) - 1), breaks=br,axis.args=arg, xlim=c(-77,-64),ylim=c(35,45),
-       las=1, legend=F, main=Chl.time[[i]])
-  map("worldHires", xlim=c(-77,-64),ylim=c(35,45), fill=T,border=0,col="gray", add=T)
-  plot(rasterX, legend.only=T, col=col5(length(br) - 1),breaks=br,axis.args=arg, legend.shrink=0.5,
-       smallplot=c(0.19,0.21, 0.6,0.80) )
-}
-NEUSplotChlRaster(All.chl, 10, 4) # data, choose date (1-228), max value
-
-### Mg Chl a /m3 -> Mg Chl a per box (take mg chla/m3 * box area * chl depth (max 50m))
-ts1=Jan.chl*bgm.z$chlZ*bgm.z$area
-ts2=Feb.chl*bgm.z$chlZ*bgm.z$area
-ts3=Mar.chl*bgm.z$chlZ*bgm.z$area
-ts4=Apr.chl*bgm.z$chlZ*bgm.z$area
-ts5=May.chl*bgm.z$chlZ*bgm.z$area
-ts6=Jun.chl*bgm.z$chlZ*bgm.z$area
-ts7=Jul.chl*bgm.z$chlZ*bgm.z$area
-ts8=Aug.chl*bgm.z$chlZ*bgm.z$area
-ts9=Sep.chl*bgm.z$chlZ*bgm.z$area
-ts10=Oct.chl*bgm.z$chlZ*bgm.z$area
-ts11=Nov.chl*bgm.z$chlZ*bgm.z$area
-ts12=Dec.chl*bgm.z$chlZ*bgm.z$area
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+# Chl.time=seq(ISOdate(1998,1,15), ISOdate(2016,12,15), "month") # monthly mean values 1998-2016
