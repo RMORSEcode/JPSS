@@ -28,6 +28,7 @@ library(mapdata)
 library(rgeos)
 library(ncdf4)
 library(abind)
+library(RColorBrewer)
 
 ### Function to load ncdf files as stacked raster
 nc2raster=function(x, varn){
@@ -77,9 +78,43 @@ plotChlRaster=function(data, i, maxV, limit=F){
        smallplot=c(0.19,0.21, 0.6,0.80) )
 }
 
-# testing...
-plotChlRaster(chl.av, 5, 5, limit=T)
-plotChlRaster(chl.av, 5, 20, limit=F)
+# color.bar <- function(lut, min, max=-min, nticks=11, ticks=seq(min, max, len=nticks), title='') {
+#   scale = (length(lut)-1)/(max-min)
+#   
+#   dev.new(width=1.75, height=5)
+#   plot(c(0,10), c(min,max), type='n', bty='n', xaxt='n', xlab='', yaxt='n', ylab='', main=title)
+#   axis(2, ticks, las=1)
+#   for (i in 1:(length(lut)-1)) {
+#     y = (i-1)/scale + min
+#     rect(0,y,10,y+1/scale, col=lut[i], border=NA)
+#   }
+# }
+# 
+# plot_binned_strata=function(m, i, shp, maxV, limit=F){
+#   rng2=cellStats(rasterX, range)
+#   if (limit == 1){
+#     max_abolute_value=maxV #set limit manually with maxV input
+#     rng=c(0, max_abolute_value, rng2[2])
+#   }
+#   else {
+#     max_abolute_value=ceiling(rng2[2]) #round up actual max val
+#     rng=c(0, max_abolute_value)
+#   }
+#   color=rev(brewer.pal(11, "Spectral"))
+#   br <- seq(0, max_abolute_value, length.out=length(color)) 
+#   m.bin=cut(m, br)
+#   arg=list(at=rng, labels=round(rng,1))
+#   plot(shp, col=color[m.bin], breaks=br,axis.args=arg, xlim=c(-77,-64),ylim=c(35,45),
+#        las=1, legend=F, main=av.dates[[i]])
+#   map("worldHires", xlim=c(-77,-64),ylim=c(35,45), fill=T,border=0,col="gray", add=T)
+#   color.bar(color, 0,max_abolute_value)
+#   # plot(rasterX, legend.only=T, col=color,breaks=br,axis.args=arg, legend.shrink=0.5,
+#   #      smallplot=c(0.19,0.21, 0.6,0.80) )
+# }
+
+# # testing...
+# plotChlRaster(chl.av, 5, 5, limit=T)
+# plotChlRaster(chl.av, 5, 20, limit=F)
 
 
 # ## load shapefiles
@@ -96,6 +131,20 @@ gom.gbk.shp=gUnion(gom, gbk, byid=F, id=NULL)
 gom.scs.shp=gUnion(gom, scs, byid=F, id=NULL)
 mab.gbk.shp=gUnion(mab, gbk, byid=F, id=NULL)
 NES.shp=gUnion(mab.gbk.shp, gom.scs.shp, byid=F, id=NULL)
+
+## grab ecomon strata and plot
+setwd('C:/Users/ryan.morse/Desktop/Iomega Drive Backup 20171012/1 RM/2 Plankton Spatial Plots/shapefiles')
+ecomon.strata=rgdal::readOGR("EcoMon_strata.shp")
+par(mar = c(0,0,0,0))
+par(oma = c(0,0,0,0))
+pdf(file='EcoMon_strata.pdf')
+map("worldHires", xlim=c(-77,-65),ylim=c(35,45), fill=T,border=0,col="gray70")
+map.axes(las=1)
+data(stateMapEnv)
+map('state', fill = F, add=T) # add state lines
+lines(ecomon.strata)
+text(coordinates(ecomon.strata)[,1], coordinates(ecomon.strata)[,2], ecomon.strata$STRATA)
+dev.off()
 
 #### Load Chl data
 # AVW: weighted average of single-sensor Level 2 CHL1 products
@@ -134,13 +183,6 @@ oc5.files=sort(files.oc5[,1])
 chl2.files=sort(files.chl2[,1])
 
 #get dates
-MM=rep(NA, length(files.GSM))
-YY=rep(NA, length(files.GSM))
-v=strsplit(nc1$filename,split="_", fixed=TRUE)
-dt=strsplit(v[[1]][2],split='-',fixed=T)[[1]][1]
-MM[i]=as.numeric(substr(dt,5,6))
-YY[i]=as.numeric(substr(dt,1,4))
-
 av.dates=list()
 for (i in 1:length(av.files)){
   av.dates[[i]]=strsplit(av.files[i],split="_", fixed=TRUE)[[1]][2]
@@ -149,13 +191,18 @@ for (i in 1:length(av.files)){
 ### create raster stacks of data 
 chl.av=nc2raster(files.chl1.av[,1], 'CHL1_mean')
 chl.gsm=nc2raster(files.chl1.gsm[,1], 'CHL1_mean')
-chl.oc5=nc2raster(files.oc5[,1], 'CHL1_mean')
+chl.oc5=nc2raster(files.oc5[,1], 'CHL-OC5_mean')
+
+nc1=nc_open(files.oc5[1,1])
 
 i=20
 plot(chl.av[[i]], main=test1[i])
 
+# testing...
+plotChlRaster(chl.av, 5, 5, limit=T)
+plotChlRaster(chl.av, 5, 20, limit=F)
 
-
+m=extract_calc(chl.av[[20]], ecomon.strata)
 
 
 
