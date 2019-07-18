@@ -154,8 +154,22 @@ dev.off()
 # CHL2 is the chlorophyll concentration (mg/m3) for Case 2 waters (see section validity); L3 merge: AV; sensors: MER, OLA; Doerffer and Schiller (2007)
 # CHL2 uses the a Neural Network algorithm;The product is valid for case 2 waters, i.e. waters where inorganic particles dominate over phytoplankton (typically in coastal waters).
 
+### Get 8-day OCCI chlorophyll data
+setwd('/media/ryan/Iomega_HDD/1 RM/3 gridded data/OCCI')
+nc1=nc_open('CCI_ALL-v4.0-8DAY.nc')
+lon=ncvar_get(nc1, 'lon')
+lat=ncvar_get(nc1, 'lat')
+chl=ncvar_get(nc1, 'chlor_a')
+time=ncvar_get(nc1, 'time') #days since Jan 1, 1970
+dim(chl)
+colnames(chl)=lat
+rownames(chl)=lon
+nc_close(nc1)
+
+
 # setwd('G:/1 RM/3 gridded data/HERMES merged CHL 25km')
 setwd("C:/Users/ryan.morse/Desktop/Iomega Drive Backup 20171012/1 RM/3 gridded data/HERMES_monthly")
+setwd('/media/ryan/Iomega_HDD/1 RM/3 gridded data/HERMES_monthly')
 wd=getwd()
 
 ## HERMES chl1 product for class 1 ocean waters, inlcudes GSM, AV, and AVW files
@@ -202,20 +216,20 @@ plot(chl.av[[i]], main=test1[i])
 plotChlRaster(chl.av, 5, 5, limit=T)
 plotChlRaster(chl.av, 5, 20, limit=F)
 
-m=extract_calc(chl.av[[20]], ecomon.strata)
+# create time series by box for ecomon strata
+m.av=extract_calc(chl.av[[1:262]], ecomon.strata)
+m.gsm=extract_calc(chl.gsm[[1:262]], ecomon.strata)
+#CBay
+plot(m.av[6,], type='l')
+lines(m.gsm[6,], col='red')
+#GBK
+plot(m.av[30,], type='l')
+lines(m.gsm[30,], col='red')
+#NY
+plot(m.av[17,], type='l')
+lines(m.gsm[17,], col='red')
 
 
-
-## fake some year data to make old code work:
-sdat=as.data.frame(matrix(NA, 41, 1))
-sdat$year=seq(from=1977, to=2017, by=1)
-# #continue...
-datalab='Chl' #'CHLrange' #'Chl'
-yr.lst=unique(year.val)
-yrlist1=unique(sdat$year)
-yy1=unique(year.val)
-yy2=yrlist1[yrlist1 %in% yy1]
-yrlist=data.frame(yy2, yy2)
 
 
 ## spring yearly means stacked raster - these are already monthly means, so just take mean for season and stack
