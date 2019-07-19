@@ -156,14 +156,15 @@ dev.off()
 
 ### Get 8-day OCCI chlorophyll data
 setwd('/media/ryan/Iomega_HDD/1 RM/3 gridded data/OCCI')
+setwd('H:/1 RM/3 gridded data/OCCI')
 nc1=nc_open('CCI_ALL-v4.0-8DAY.nc')
-lon=ncvar_get(nc1, 'lon')
-lat=ncvar_get(nc1, 'lat')
-chl=ncvar_get(nc1, 'chlor_a')
-time=ncvar_get(nc1, 'time') #days since Jan 1, 1970
-dim(chl)
-colnames(chl)=lat
-rownames(chl)=lon
+lon.occi=ncvar_get(nc1, 'lon')
+lat.occi=ncvar_get(nc1, 'lat')
+chl.occi=ncvar_get(nc1, 'chlor_a')
+time.occi=ncvar_get(nc1, 'time') #days since Jan 1, 1970
+dim(chl.occi)
+colnames(chl.occi)=lat.occi
+rownames(chl.occi)=lon.occi
 nc_close(nc1)
 
 
@@ -202,6 +203,13 @@ for (i in 1:length(av.files)){
   av.dates[[i]]=strsplit(av.files[i],split="_", fixed=TRUE)[[1]][2]
 }
 
+nc1=nc_open(av.files[1])
+lon.av=ncvar_get(nc1, 'lon')
+lat.av=ncvar_get(nc1, 'lat')
+chl.av.1=ncvar_get(nc1, 'CHL1_mean')
+time.occi=ncvar_get(nc1, 'time') #days since Jan 1, 1970
+dim(chl.occi)
+
 ### create raster stacks of data 
 chl.av=nc2raster(files.chl1.av[,1], 'CHL1_mean')
 chl.gsm=nc2raster(files.chl1.gsm[,1], 'CHL1_mean')
@@ -219,6 +227,8 @@ plotChlRaster(chl.av, 5, 20, limit=F)
 # create time series by box for ecomon strata
 m.av=extract_calc(chl.av[[1:262]], ecomon.strata)
 m.gsm=extract_calc(chl.gsm[[1:262]], ecomon.strata)
+m.oc5=extract_calc(chl.oc5[[1:262]], ecomon.strata)
+
 #CBay
 plot(m.av[6,], type='l')
 lines(m.gsm[6,], col='red')
@@ -343,3 +353,20 @@ files.12GSM=files.12GSM[c(1:14,16:20)]
 # }
 
 # Chl.time=seq(ISOdate(1998,1,15), ISOdate(2016,12,15), "month") # monthly mean values 1998-2016
+
+### read in calibration files from seaBASS
+setwd('C:/Users/ryan.morse/Documents/GitHub/JPSS/calibration')
+mrs=read.csv('1563559063629053_chlor_a.csv', skip=26, header=T, stringsAsFactors = F); mrs=mrs[-c(1:2),] # MERIS
+swf=read.csv('1563558739820325_chlor_a.csv', skip=26, header=T, stringsAsFactors = F); swf=swf[-c(1:2),] # SeaWiFS
+mds=read.csv('1563558871350863_chlor_a.csv', skip=26, header=T, stringsAsFactors = F); mds=mds[-c(1:2),] # Modis
+vrs=read.csv('1563558999992368_chlor_a.csv', skip=26, header=T, stringsAsFactors = F); vrs=vrs[-c(1:2),] # Viirs-snpp
+
+
+mrs$longitude=as.numeric(mrs$longitude); mrs$latitude=as.numeric(mrs$latitude); mrs$insitu_chlor_a=as.numeric(mrs$insitu_chlor_a)
+coordinates(mrs)=~longitude+latitude#transform to Spatialpointsdataframe
+proj4string(mrs)=CRS("+proj=longlat +datum=NAD83 +no_defs +ellps=GRS80 +towgs84=0,0,0") #ensure same projection
+pointsin=over(mrs, NES.shp) #find which boxes samples belong to
+
+
+
+
