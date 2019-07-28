@@ -229,6 +229,11 @@ lines(m.gsm[30,], col='red')
 plot(m.av[17,], type='l')
 lines(m.gsm[17,], col='red')
 
+plot((m.av[1,]-m.gsm[1,]), type='l')
+abline(h=0, lty=2)
+
+
+
 
 
 
@@ -331,15 +336,6 @@ ii=data.frame(files.11GSM)
 files.11GSM=files.11GSM[c(1:13,15:20)] 
 files.12GSM=list.files(wd, pattern='1201');files.12GSM=grep(files.12GSM, pattern='_GSM-', inv=F, value=T)
 ii=data.frame(files.12GSM)
-files.12GSM=files.12GSM[c(1:14,16:20)] 
-
-
-
-
-# s=stack()
-# for (i in 1:length(files.01GSM)){
-#   r <- raster(files.01GSM[i],  varname = "CHL1_mean")
-#   s=stack(s, r)
-# }
+files.12GSM=files.12GSM[c(1:14,16:20)]
 
 # Chl.time=seq(ISOdate(1998,1,15), ISOdate(2016,12,15), "month") # monthly mean values 1998-2016
