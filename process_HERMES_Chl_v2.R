@@ -29,6 +29,7 @@ library(rgeos)
 library(ncdf4)
 library(abind)
 library(RColorBrewer)
+library(chron)
 
 ### Function to load ncdf files as stacked raster
 nc2raster=function(x, varn){
@@ -167,12 +168,67 @@ colnames(chl.occi)=lat.occi
 rownames(chl.occi)=lon.occi
 nc_close(nc1)
 
+setwd('H:/1 RM/3 gridded data/OCCI')
+nc1=nc_open('CCI_ALL-v4.0-8DAY.nc')
+lon.occi=ncvar_get(nc1, 'lon')
+lat.occi=ncvar_get(nc1, 'lat')
+chl.occi=ncvar_get(nc1, 'chlor_a')
+time.occi=ncvar_get(nc1, 'time') #days since Jan 1, 1970
+
+### get calibration Chl from WOD
+d2='C:/Users/ryan.morse/Documents/GitHub/JPSS/calibration/WOD'
+ncfiles=list.files(path=d2, pattern='.nc')
+nc.str=strsplit(ncfiles, '.nc')
+
+i=1 #CTD hi res
+nc1=nc_open(ncfiles[i])
+wod.chl=ncvar_get(nc1, 'Chlorophyll')
+wod.lat=ncvar_get(nc1, 'lat')
+wod.lon=ncvar_get(nc1, 'lon')
+wod.time=ncvar_get(nc1, 'time') #days since Jan 1, 1770
+wod.z=ncvar_get(nc1, 'z')
+nc1$var$time$units
+# i=4 #profiler buoy samples
+# nc1=nc_open(ncfiles[i])
+# wod.pfl.chl=ncvar_get(nc1, 'Chlorophyll')
+# wod.pfl.lat=ncvar_get(nc1, 'lat')
+# wod.pfl.lon=ncvar_get(nc1, 'lon')
+# wod.pfl.time=ncvar_get(nc1, 'time') #days since Jan 1, 1770
+# i=2 #glider samples
+# nc1=nc_open(ncfiles[i])
+# wod.gld.chl=ncvar_get(nc1, 'Chlorophyll')
+# wod.gld.lat=ncvar_get(nc1, 'lat')
+# wod.gld.lon=ncvar_get(nc1, 'lon')
+# wod.gld.time=ncvar_get(nc1, 'time') #days since Jan 1, 1770
+# i=3 #bottle samples
+# nc1=nc_open(ncfiles[i])
+# wod.osd.chl=ncvar_get(nc1, 'Chlorophyll')
+# wod.osd.lat=ncvar_get(nc1, 'lat')
+# wod.osd.lon=ncvar_get(nc1, 'lon')
+# wod.osd.time=ncvar_get(nc1, 'time') #days since Jan 1, 1770
+
+## WOD CTD samples, surface depth
+wod.chl.df=data.frame(wod.chl[which(wod.z==0)], wod.lon, wod.lat, wod.z[which(wod.z==0)], wod.time)
+test=month.day.year(wod.chl.df$wod.time, c(1,1,1770))
+wod.chl.df$month=test$month
+wod.chl.df$day=test$day
+wod.chl.df$year=test$year
+wod.chl.df2=wod.chl.df[which(wod.chl.df$year>1996),]
+colnames(wod.chl.df2)=c('chl', 'lon', 'lat', 'z', 'jday', 'month', 'day', 'year')
+barplot(table(round(wod.chl.df2$chl, digits=1)))
+
+coordinates(wod.chl.df2)=~lon+lat #transform to Spatialpointsdataframe
+proj4string(wod.chl.df2)=CRS("+proj=longlat +datum=NAD83 +no_defs +ellps=GRS80 +towgs84=0,0,0") #ensure same projection
+pointsin=over(wod.chl.df2, NES.shp) #find which boxes samples belong to
+map("worldHires", xlim=c(-77,-65),ylim=c(35,45), fill=T,border=0,col="gray70")
+map.axes(las=1)
+points(wod.chl.df2)
+
 
 # setwd('G:/1 RM/3 gridded data/HERMES merged CHL 25km')
 setwd("C:/Users/ryan.morse/Desktop/Iomega Drive Backup 20171012/1 RM/3 gridded data/HERMES_monthly")
 setwd('/media/ryan/Iomega_HDD/1 RM/3 gridded data/HERMES_monthly')
 wd=getwd()
-
 ## HERMES chl1 product for class 1 ocean waters, inlcudes GSM, AV, and AVW files
 files.chl1=list.files(wd, pattern=('_CHL1_MO'))
 files.chl1.ave=files.chl1[grep(files.chl1, pattern=('_AV-'))] #average SeaWiFS only
@@ -230,16 +286,22 @@ m.gsm=extract_calc(chl.gsm[[1:262]], ecomon.strata)
 m.oc5=extract_calc(chl.oc5[[1:262]], ecomon.strata)
 
 #CBay
-plot(m.av[6,], type='l')
+plot(m.av[6,], type='l', main='Box 6 CBay')
 lines(m.gsm[6,], col='red')
 #GBK
-plot(m.av[30,], type='l')
+plot(m.av[30,], type='l', main='Box 30 GBK')
 lines(m.gsm[30,], col='red')
 #NY
-plot(m.av[17,], type='l')
+plot(m.av[17,], type='l', main='Box 17 Hudson River')
 lines(m.gsm[17,], col='red')
-
-
+#
+plot(m.av[26,], type='l', main='Box 26 GBK outer shelf')
+lines(m.gsm[26,], col='red')
+#
+ii=6
+plot(m.oc5[ii,], type='l', main=paste('Box',ii))
+lines(m.gsm[ii,], col='red')
+lines(m.av[ii,], col='blue')
 
 
 ## spring yearly means stacked raster - these are already monthly means, so just take mean for season and stack
@@ -366,7 +428,35 @@ mrs$longitude=as.numeric(mrs$longitude); mrs$latitude=as.numeric(mrs$latitude); 
 coordinates(mrs)=~longitude+latitude#transform to Spatialpointsdataframe
 proj4string(mrs)=CRS("+proj=longlat +datum=NAD83 +no_defs +ellps=GRS80 +towgs84=0,0,0") #ensure same projection
 pointsin=over(mrs, NES.shp) #find which boxes samples belong to
+# pointsin=over(mrs, ecomon.strata)
+map("worldHires", xlim=c(-77,-65),ylim=c(35,45), fill=T,border=0,col="gray70")
+map.axes(las=1)
+points(mrs)
 
+swf$longitude=as.numeric(swf$longitude); swf$latitude=as.numeric(swf$latitude); swf$insitu_chlor_a=as.numeric(swf$insitu_chlor_a)
+coordinates(swf)=~longitude+latitude#transform to Spatialpointsdataframe
+proj4string(swf)=CRS("+proj=longlat +datum=NAD83 +no_defs +ellps=GRS80 +towgs84=0,0,0") #ensure same projection
+pointsin=over(swf, NES.shp) #find which boxes samples belong to
+# pointsin=over(swf, ecomon.strata)
+map("worldHires", xlim=c(-77,-65),ylim=c(35,45), fill=T,border=0,col="gray70")
+map.axes(las=1)
+points(swf)
 
+mds$longitude=as.numeric(mds$longitude); mds$latitude=as.numeric(mds$latitude); mds$insitu_chlor_a=as.numeric(mds$insitu_chlor_a)
+coordinates(mds)=~longitude+latitude#transform to Spatialpointsdataframe
+proj4string(mds)=CRS("+proj=longlat +datum=NAD83 +no_defs +ellps=GRS80 +towgs84=0,0,0") #ensure same projection
+pointsin=over(mds, NES.shp) #find which boxes samples belong to
+# pointsin=over(mds, ecomon.strata)
+map("worldHires", xlim=c(-77,-65),ylim=c(35,45), fill=T,border=0,col="gray70")
+map.axes(las=1)
+points(mds)
 
+vrs$longitude=as.numeric(vrs$longitude); vrs$latitude=as.numeric(vrs$latitude); vrs$insitu_chlor_a=as.numeric(vrs$insitu_chlor_a)
+coordinates(vrs)=~longitude+latitude#transform to Spatialpointsdataframe
+proj4string(vrs)=CRS("+proj=longlat +datum=NAD83 +no_defs +ellps=GRS80 +towgs84=0,0,0") #ensure same projection
+pointsin=over(vrs, NES.shp) #find which boxes samples belong to
+# pointsin=over(vrs, ecomon.strata)
+map("worldHires", xlim=c(-77,-65),ylim=c(35,45), fill=T,border=0,col="gray70")
+map.axes(las=1)
+points(vrs)
 
