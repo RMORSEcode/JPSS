@@ -1,16 +1,6 @@
 # 
 # url<- "ftp://ftp.hermes.acri.fr/345576024"
 # filenames <- getURL(url, userpwd="ftp_hermes:hermes%", ftp.use.epsv = FALSE, dirlistonly = TRUE) #reading filenames from ftp-server
-# destnames <- filenames <-  strsplit(filenames, "\r*\n")[[1]] # destfiles = origin file names
-# con <-  getCurlHandle( ftp.use.epsv = FALSE, userpwd="ftp_hermes:hermes%")
-# setwd('C:/Users/ryan.morse/Desktop/Iomega Drive Backup 20171012/1 RM/3 gridded data/HERMES_daily')
-# mapply(function(x,y) writeBin(getBinaryURL(x, curl = con, dirlistonly = FALSE), y), x = filenames, y = paste("C:\\temp\\",destnames, sep = "")) #writing all zipped files in one directory
-#  
-# devtools::install_github("skgrange/threadr")
-# 
-# library(threadr)
-# download_ftp_file(url, destnames, credentials = "ftp_hermes:hermes%",
-#                   curl = T, verbose = FALSE, progress = "none")
 
 # OCCI https://esa-oceancolour-cci.org/
 # NCSS Request URL
@@ -34,9 +24,11 @@ library(chron)
 ### Function to load ncdf files as stacked raster
 nc2raster=function(x, varn){
   s=stack()
+  yy=length(x)
   for (i in 1:length(x)){
     r <- raster(x[i],  varname = varn)
     s=stack(s, r)
+    print(paste(i,' of ', yy, ' files', sep=''))
   }
   return(s)
 }
@@ -174,57 +166,48 @@ lon.occi=ncvar_get(nc1, 'lon')
 lat.occi=ncvar_get(nc1, 'lat')
 chl.occi=ncvar_get(nc1, 'chlor_a')
 time.occi=ncvar_get(nc1, 'time') #days since Jan 1, 1970
+test=month.day.year(time.occi, c(1,1,1970)) # these are not 8-days apart.... something odd
 
-### get calibration Chl from WOD
-d2='C:/Users/ryan.morse/Documents/GitHub/JPSS/calibration/WOD'
-ncfiles=list.files(path=d2, pattern='.nc')
-nc.str=strsplit(ncfiles, '.nc')
+### HERMES 8-day composites ###
+# setwd('G:/1 RM/3 gridded data/HERMES merged CHL 25km')
+setwd("C:/Users/ryan.morse/Desktop/Iomega Drive Backup 20171012/1 RM/3 gridded data/HERMES_8day")
+setwd('/media/ryan/Iomega_HDD/1 RM/3 gridded data/HERMES_8day')
+wd=getwd()
+## HERMES chl1 product for class 1 ocean waters, inlcudes GSM, AV, and AVW files
+files.chl1=list.files(wd, pattern=('_CHL1_8D'))
+files.chl1.ave=files.chl1[grep(files.chl1, pattern=('_AV-'))] #average SeaWiFS only
+files.chl1.avw=files.chl1[grep(files.chl1, pattern=('_AVW-'))] #weighted average merge of multiple satellite data
+## Merge the AV and AVW chl1 product filenames
+test=data.frame(files.chl1.ave,stringsAsFactors = FALSE); colnames(test)='chl1'
+test2=data.frame(files.chl1.avw,stringsAsFactors = FALSE); colnames(test2)='chl1'
+files.chl1.av=rbind(test, test2); rm(test); rm(test2)
+## Select just GSM chl1 product filenames
+files.chl1.gsm=data.frame(files.chl1[grep(files.chl1, pattern=('_GSM-'))],stringsAsFactors = FALSE);colnames(files.chl1.gsm)='gsm' #GSM merge of multiple satellite data
 
-i=1 #CTD hi res
-nc1=nc_open(ncfiles[i])
-wod.chl=ncvar_get(nc1, 'Chlorophyll')
-wod.lat=ncvar_get(nc1, 'lat')
-wod.lon=ncvar_get(nc1, 'lon')
-wod.time=ncvar_get(nc1, 'time') #days since Jan 1, 1770
-wod.z=ncvar_get(nc1, 'z')
-nc1$var$time$units
-# i=4 #profiler buoy samples
-# nc1=nc_open(ncfiles[i])
-# wod.pfl.chl=ncvar_get(nc1, 'Chlorophyll')
-# wod.pfl.lat=ncvar_get(nc1, 'lat')
-# wod.pfl.lon=ncvar_get(nc1, 'lon')
-# wod.pfl.time=ncvar_get(nc1, 'time') #days since Jan 1, 1770
-# i=2 #glider samples
-# nc1=nc_open(ncfiles[i])
-# wod.gld.chl=ncvar_get(nc1, 'Chlorophyll')
-# wod.gld.lat=ncvar_get(nc1, 'lat')
-# wod.gld.lon=ncvar_get(nc1, 'lon')
-# wod.gld.time=ncvar_get(nc1, 'time') #days since Jan 1, 1770
-# i=3 #bottle samples
-# nc1=nc_open(ncfiles[i])
-# wod.osd.chl=ncvar_get(nc1, 'Chlorophyll')
-# wod.osd.lat=ncvar_get(nc1, 'lat')
-# wod.osd.lon=ncvar_get(nc1, 'lon')
-# wod.osd.time=ncvar_get(nc1, 'time') #days since Jan 1, 1770
+## HERMES chl2 product files (coastal, limited data)
+files.chl2=list.files(wd, pattern=('_CHL2_8D')) #HERMES chl2, only for MER and OLA sats (limited data)
+files.chl2=data.frame(files.chl2, stringsAsFactors = FALSE);colnames(files.chl2)='chl2'
+## HERMES OC5 product filenames
+files.oc5=list.files(wd, pattern=('CHL-OC5_')) #HERMES oc5 algorithm for coastal waters
+files.oc5=data.frame(files.oc5, stringsAsFactors = F);colnames(files.oc5)='oc5' #HERMES oc5 algorithm for coastal waters
 
-## WOD CTD samples, surface depth
-wod.chl.df=data.frame(wod.chl[which(wod.z==0)], wod.lon, wod.lat, wod.z[which(wod.z==0)], wod.time)
-test=month.day.year(wod.chl.df$wod.time, c(1,1,1770))
-wod.chl.df$month=test$month
-wod.chl.df$day=test$day
-wod.chl.df$year=test$year
-wod.chl.df2=wod.chl.df[which(wod.chl.df$year>1996),]
-colnames(wod.chl.df2)=c('chl', 'lon', 'lat', 'z', 'jday', 'month', 'day', 'year')
-barplot(table(round(wod.chl.df2$chl, digits=1)))
+### sort data lists to make sure it is in chronological order
+av.files=sort(files.chl1.av[,1])
+gsm.files=sort(files.chl1.gsm[,1])
+oc5.files=sort(files.oc5[,1])
+chl2.files=sort(files.chl2[,1])
 
-coordinates(wod.chl.df2)=~lon+lat #transform to Spatialpointsdataframe
-proj4string(wod.chl.df2)=CRS("+proj=longlat +datum=NAD83 +no_defs +ellps=GRS80 +towgs84=0,0,0") #ensure same projection
-pointsin=over(wod.chl.df2, NES.shp) #find which boxes samples belong to
-map("worldHires", xlim=c(-77,-65),ylim=c(35,45), fill=T,border=0,col="gray70")
-map.axes(las=1)
-points(wod.chl.df2)
+#get dates
+av.dates.8d=list()
+for (i in 1:length(av.files)){
+  av.dates.8d[[i]]=strsplit(av.files[i],split="_", fixed=TRUE)[[1]][2]
+}
+### create raster stacks of data 
+chl.av.8d=nc2raster(files.chl1.av[,1], 'CHL1_mean')
+chl.gsm.8d=nc2raster(files.chl1.gsm[,1], 'CHL1_mean')
+chl.oc5.8d=nc2raster(files.oc5[,1], 'CHL-OC5_mean')
 
-
+### HERMES monthly composites ###
 # setwd('G:/1 RM/3 gridded data/HERMES merged CHL 25km')
 setwd("C:/Users/ryan.morse/Desktop/Iomega Drive Backup 20171012/1 RM/3 gridded data/HERMES_monthly")
 setwd('/media/ryan/Iomega_HDD/1 RM/3 gridded data/HERMES_monthly')
@@ -259,12 +242,12 @@ for (i in 1:length(av.files)){
   av.dates[[i]]=strsplit(av.files[i],split="_", fixed=TRUE)[[1]][2]
 }
 
-nc1=nc_open(av.files[1])
-lon.av=ncvar_get(nc1, 'lon')
-lat.av=ncvar_get(nc1, 'lat')
-chl.av.1=ncvar_get(nc1, 'CHL1_mean')
-time.occi=ncvar_get(nc1, 'time') #days since Jan 1, 1970
-dim(chl.occi)
+# nc1=nc_open(av.files[1])
+# lon.av=ncvar_get(nc1, 'lon')
+# lat.av=ncvar_get(nc1, 'lat')
+# chl.av.1=ncvar_get(nc1, 'CHL1_mean')
+# time.occi=ncvar_get(nc1, 'time') #days since Jan 1, 1970
+# dim(chl.occi)
 
 ### create raster stacks of data 
 chl.av=nc2raster(files.chl1.av[,1], 'CHL1_mean')
@@ -459,4 +442,54 @@ pointsin=over(vrs, NES.shp) #find which boxes samples belong to
 map("worldHires", xlim=c(-77,-65),ylim=c(35,45), fill=T,border=0,col="gray70")
 map.axes(las=1)
 points(vrs)
+
+
+### get calibration Chl from WOD
+d2='C:/Users/ryan.morse/Documents/GitHub/JPSS/calibration/WOD'
+ncfiles=list.files(path=d2, pattern='.nc')
+nc.str=strsplit(ncfiles, '.nc')
+
+i=1 #CTD hi res
+nc1=nc_open(ncfiles[i])
+wod.chl=ncvar_get(nc1, 'Chlorophyll')
+wod.lat=ncvar_get(nc1, 'lat')
+wod.lon=ncvar_get(nc1, 'lon')
+wod.time=ncvar_get(nc1, 'time') #days since Jan 1, 1770
+wod.z=ncvar_get(nc1, 'z')
+nc1$var$time$units
+# i=4 #profiler buoy samples
+# nc1=nc_open(ncfiles[i])
+# wod.pfl.chl=ncvar_get(nc1, 'Chlorophyll')
+# wod.pfl.lat=ncvar_get(nc1, 'lat')
+# wod.pfl.lon=ncvar_get(nc1, 'lon')
+# wod.pfl.time=ncvar_get(nc1, 'time') #days since Jan 1, 1770
+# i=2 #glider samples
+# nc1=nc_open(ncfiles[i])
+# wod.gld.chl=ncvar_get(nc1, 'Chlorophyll')
+# wod.gld.lat=ncvar_get(nc1, 'lat')
+# wod.gld.lon=ncvar_get(nc1, 'lon')
+# wod.gld.time=ncvar_get(nc1, 'time') #days since Jan 1, 1770
+# i=3 #bottle samples
+# nc1=nc_open(ncfiles[i])
+# wod.osd.chl=ncvar_get(nc1, 'Chlorophyll')
+# wod.osd.lat=ncvar_get(nc1, 'lat')
+# wod.osd.lon=ncvar_get(nc1, 'lon')
+# wod.osd.time=ncvar_get(nc1, 'time') #days since Jan 1, 1770
+
+## WOD CTD samples, surface depth
+wod.chl.df=data.frame(wod.chl[which(wod.z==0)], wod.lon, wod.lat, wod.z[which(wod.z==0)], wod.time)
+test=month.day.year(wod.chl.df$wod.time, c(1,1,1770))
+wod.chl.df$month=test$month
+wod.chl.df$day=test$day
+wod.chl.df$year=test$year
+wod.chl.df2=wod.chl.df[which(wod.chl.df$year>1996),]
+colnames(wod.chl.df2)=c('chl', 'lon', 'lat', 'z', 'jday', 'month', 'day', 'year')
+barplot(table(round(wod.chl.df2$chl, digits=1)))
+
+coordinates(wod.chl.df2)=~lon+lat #transform to Spatialpointsdataframe
+proj4string(wod.chl.df2)=CRS("+proj=longlat +datum=NAD83 +no_defs +ellps=GRS80 +towgs84=0,0,0") #ensure same projection
+pointsin=over(wod.chl.df2, NES.shp) #find which boxes samples belong to
+map("worldHires", xlim=c(-77,-65),ylim=c(35,45), fill=T,border=0,col="gray70")
+map.axes(las=1)
+points(wod.chl.df2)
 
