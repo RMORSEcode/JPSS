@@ -50,9 +50,9 @@ extract_calc=function(x, shp){
 
 
 ### Function to plot a raster for the NES area and set scale
-plotChlRaster=function(data, i, maxV, limit=F){
+plotChlRaster=function(data, i, maxV, limit=F, dateval){
   rasterX=data[[i]]
-  rng2=cellStats(rasterX, range)
+    rng2=cellStats(rasterX, range)
   if (limit == 1){
     max_abolute_value=maxV #set limit manually with maxV input
     rng=c(0, max_abolute_value, rng2[2])
@@ -65,7 +65,7 @@ plotChlRaster=function(data, i, maxV, limit=F){
   br <- seq(0, max_abolute_value, length.out=9) 
      arg=list(at=rng, labels=round(rng,1))
   plot(rasterX, col=color, breaks=br,axis.args=arg, xlim=c(-77,-64),ylim=c(35,45),
-       las=1, legend=F, main=av.dates[[i]])
+       las=1, legend=F, main=dateval[[i]])
   map("worldHires", xlim=c(-77,-64),ylim=c(35,45), fill=T,border=0,col="gray", add=T)
   plot(rasterX, legend.only=T, col=color,breaks=br,axis.args=arg, legend.shrink=0.5,
        smallplot=c(0.19,0.21, 0.6,0.80) )
@@ -202,10 +202,25 @@ av.dates.8d=list()
 for (i in 1:length(av.files)){
   av.dates.8d[[i]]=strsplit(av.files[i],split="_", fixed=TRUE)[[1]][2]
 }
+test=do.call(rbind, strsplit(unlist(av.dates.8d), split="-", fixed=T))
+dates.8d=matrix(NA, nrow=length(test[,1]), ncol=3)
+dates.8d=data.frame(dates.8d)
+dates.8d$X1=as.numeric(substr(test[,1], 1,4)) #YYYY
+dates.8d$X2=substr(test[,1], 5,6) #MM
+dates.8d$X3=substr(test[,1], 7,8) #DD
+dates.8d$Y1=substr(test[,2], 1,4) #YYYY
+dates.8d$Y2=substr(test[,2], 5,6) #MM
+dates.8d$Y3=substr(test[,2], 7,8) #DD
+
+
+
 ### create raster stacks of data 
 chl.av.8d=nc2raster(files.chl1.av[,1], 'CHL1_mean')
 chl.gsm.8d=nc2raster(files.chl1.gsm[,1], 'CHL1_mean')
 chl.oc5.8d=nc2raster(files.oc5[,1], 'CHL-OC5_mean')
+
+#testing
+plotChlRaster(chl.av.8d, 5, 5, limit=T, av.dates.8d)
 
 ### HERMES monthly composites ###
 # setwd('G:/1 RM/3 gridded data/HERMES merged CHL 25km')
@@ -260,8 +275,8 @@ i=20
 plot(chl.av[[i]], main=test1[i])
 
 # testing...
-plotChlRaster(chl.av, 5, 5, limit=T)
-plotChlRaster(chl.av, 5, 20, limit=F)
+plotChlRaster(chl.av, 5, 5, limit=T, av.dates)
+plotChlRaster(chl.av, 5, 20, limit=F, av.dates)
 
 # create time series by box for ecomon strata
 m.av=extract_calc(chl.av[[1:262]], ecomon.strata)
