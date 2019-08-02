@@ -211,8 +211,10 @@ dates.8d$X3=substr(test[,1], 7,8) #DD
 dates.8d$Y1=substr(test[,2], 1,4) #YYYY
 dates.8d$Y2=substr(test[,2], 5,6) #MM
 dates.8d$Y3=substr(test[,2], 7,8) #DD
-
-
+dates.8d$F1=paste(dates.8d[,1], dates.8d[,2], dates.8d[,3], sep='-')
+dates.8d$F2=paste(dates.8d[,4], dates.8d[,5], dates.8d[,6], sep='-')
+dates.8d$DOY1=as.numeric(strftime(dates.8d$F1, '%j'))
+dates.8d$DOY2=as.numeric(strftime(dates.8d$F2, '%j'))
 
 ### create raster stacks of data 
 chl.av.8d=nc2raster(files.chl1.av[,1], 'CHL1_mean')
@@ -499,7 +501,13 @@ wod.chl.df$day=test$day
 wod.chl.df$year=test$year
 wod.chl.df2=wod.chl.df[which(wod.chl.df$year>1996),]
 colnames(wod.chl.df2)=c('chl', 'lon', 'lat', 'z', 'jday', 'month', 'day', 'year')
+wod.chl.df2$F1=paste(wod.chl.df2$year, wod.chl.df2$month, wod.chl.df2$day, sep='-')
+wod.chl.df2$DOY=as.numeric(strftime(wod.chl.df2$F1, '%j'))
+
+
 barplot(table(round(wod.chl.df2$chl, digits=1)))
+barplot(table(wod.chl.df2$month))
+barplot(table(wod.chl.df2$year))
 
 coordinates(wod.chl.df2)=~lon+lat #transform to Spatialpointsdataframe
 proj4string(wod.chl.df2)=CRS("+proj=longlat +datum=NAD83 +no_defs +ellps=GRS80 +towgs84=0,0,0") #ensure same projection
@@ -507,4 +515,43 @@ pointsin=over(wod.chl.df2, NES.shp) #find which boxes samples belong to
 map("worldHires", xlim=c(-77,-65),ylim=c(35,45), fill=T,border=0,col="gray70")
 map.axes(las=1)
 points(wod.chl.df2)
+
+### build initial list of time matchups
+yy=unique(wod.chl.df2$year) # unique years
+wod.chl.df2$smatch=NA
+for(i in 1:length(wod.chl.df2$lon)){
+  for(j in 1:length(yy)){
+    yj=yy[j]
+    # limd=which(dates.8d$Y1==yj) # limit to rows of dates in a year
+    # xmn=which(dates.8d[,9]<=mt1$DOY)
+    # xmx=which(dates.8d$DOY1[which(dates.8d$Y1==yj)]<=mt1$DOY)
+    
+    
+    # xlm=which(wod.chl.df2$year==yj) # rows of limit years
+    xlm=which(dates.8d$Y1==yj) # rows of limit years
+    xmn=wod.chl.df2$DOY[i]<=dates.8d$DOY1[xlm]#[dates.8d$Y1==yj]
+    xmx=wod.chl.df2$DOY[i]>=dates.8d$DOY2[xlm]#[dates.8d$Y1==yj]
+    
+    t=which((xmx==0)&(xmn==0))
+    
+    # t=which(xlm==1)
+    t1=which(xmn==0)
+    t2=which(xmx==0)
+    
+    t5=which(t1%in%t2)
+    # sum(t5)
+    
+    # xx=seq(from=as.numeric(dates.8d$DOY1[i]), to=as.numeric(dates.8d$DOY2[i]), by=1)
+    # mt1=subset.data.frame(wod.chl.df2, year==yj)
+    # t=which((as.numeric(dates.8d$DOY1[which(dates.8d$y1==yj)])<=as.numeric(mt1$DOY))&&
+              # (as.numeric(dates.8d$DOY2[which(dates.8d$y1==yj)])>=as.numeric(mt1$DOY))&&(wod.chl.df2$year==yj))
+    # t=which((dates.8d$DOY1[which(dates.8d$Y1==yj)]<=mt1$DOY)&&(dates.8d$DOY2[which(dates.8d$Y1==yj)]>=mt1$DOY)&&(wod.chl.df2$year==yj))
+    wod.chl.df2$smatch[i]=t5
+  }
+}
+
+
+
+
+
 
