@@ -546,7 +546,12 @@ for(i in 1:length(wod.chl.df2$lon)){
     # t=which((as.numeric(dates.8d$DOY1[which(dates.8d$y1==yj)])<=as.numeric(mt1$DOY))&&
               # (as.numeric(dates.8d$DOY2[which(dates.8d$y1==yj)])>=as.numeric(mt1$DOY))&&(wod.chl.df2$year==yj))
     # t=which((dates.8d$DOY1[which(dates.8d$Y1==yj)]<=mt1$DOY)&&(dates.8d$DOY2[which(dates.8d$Y1==yj)]>=mt1$DOY)&&(wod.chl.df2$year==yj))
-    wod.chl.df2$smatch[i]=t5
+    if(length(t5)<1){
+      next
+    }
+    else {
+      wod.chl.df2$smatch[i]=t5
+    }
   }
 }
 
