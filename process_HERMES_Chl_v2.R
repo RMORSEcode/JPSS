@@ -503,7 +503,7 @@ wod.chl.df2=wod.chl.df[which(wod.chl.df$year>1996),]
 colnames(wod.chl.df2)=c('chl', 'lon', 'lat', 'z', 'jday', 'month', 'day', 'year')
 wod.chl.df2$F1=paste(wod.chl.df2$year, wod.chl.df2$month, wod.chl.df2$day, sep='-')
 wod.chl.df2$DOY=as.numeric(strftime(wod.chl.df2$F1, '%j'))
-
+wod.chl.df2=wod.chl.df2[complete.cases(wod.chl.df2),]
 
 barplot(table(round(wod.chl.df2$chl, digits=1)))
 barplot(table(wod.chl.df2$month))
@@ -516,46 +516,41 @@ map("worldHires", xlim=c(-77,-65),ylim=c(35,45), fill=T,border=0,col="gray70")
 map.axes(las=1)
 points(wod.chl.df2)
 
-### build initial list of time matchups
-yy=unique(wod.chl.df2$year) # unique years
+### build initial list of time matchups - indicates the dimension of the chl raster stack to extract data from
+# yy=unique(wod.chl.df2$year) # unique years
 wod.chl.df2$smatch=NA
+# wod.chl.df2$DOYmed=NA
+wod.chl.df2$sDOY1=NA
+wod.chl.df2$sDOY2=NA
 for(i in 1:length(wod.chl.df2$lon)){
-  for(j in 1:length(yy)){
-    yj=yy[j]
-    # limd=which(dates.8d$Y1==yj) # limit to rows of dates in a year
-    # xmn=which(dates.8d[,9]<=mt1$DOY)
-    # xmx=which(dates.8d$DOY1[which(dates.8d$Y1==yj)]<=mt1$DOY)
-    
-    
-    # xlm=which(wod.chl.df2$year==yj) # rows of limit years
-    xlm=which(dates.8d$Y1==yj) # rows of limit years
-    xmn=wod.chl.df2$DOY[i]<=dates.8d$DOY1[xlm]#[dates.8d$Y1==yj]
-    xmx=wod.chl.df2$DOY[i]>=dates.8d$DOY2[xlm]#[dates.8d$Y1==yj]
-    
-    t=which((xmx==0)&(xmn==0))
-    
-    # t=which(xlm==1)
-    t1=which(xmn==0)
-    t2=which(xmx==0)
-    
-    t5=which(t1%in%t2)
-    # sum(t5)
-    
-    # xx=seq(from=as.numeric(dates.8d$DOY1[i]), to=as.numeric(dates.8d$DOY2[i]), by=1)
-    # mt1=subset.data.frame(wod.chl.df2, year==yj)
-    # t=which((as.numeric(dates.8d$DOY1[which(dates.8d$y1==yj)])<=as.numeric(mt1$DOY))&&
-              # (as.numeric(dates.8d$DOY2[which(dates.8d$y1==yj)])>=as.numeric(mt1$DOY))&&(wod.chl.df2$year==yj))
-    # t=which((dates.8d$DOY1[which(dates.8d$Y1==yj)]<=mt1$DOY)&&(dates.8d$DOY2[which(dates.8d$Y1==yj)]>=mt1$DOY)&&(wod.chl.df2$year==yj))
-    if(length(t5)<1){
-      next
-    }
-    else {
-      wod.chl.df2$smatch[i]=t5
-    }
+  ylim=which(dates.8d$Y1==wod.chl.df2$year[i])
+  xmn=which(dates.8d$DOY1[ylim]<=wod.chl.df2$DOY[i])#[dates.8d$Y1==yj]
+  xmx=which(dates.8d$DOY2[ylim]>=wod.chl.df2$DOY[i])#[dates.8d$Y1==yj]
+  both=ylim[which(xmn%in%xmx)]
+  if(length(both)<1){
+    next
+  }
+  else {
+    wod.chl.df2$smatch[i]=both
+    wod.chl.df2$sDOY1[i]=dates.8d$DOY1[both]
+    wod.chl.df2$sDOY2[i]=dates.8d$DOY2[both]
   }
 }
 
+wod.chl.df2$DOYmed=round((wod.chl.df2$sDOY1+wod.chl.df2$sDOY2)/2, digits=0) # median satellite DOY
+wod.chl.df2$ddif=wod.chl.df2$DOY-wod.chl.df2$DOYmed # difference from median satellite date
 
+### now extract from raster
+i=2746
+tt=extract(chl.gsm.8d[[140]], wod.chl.df2[i,], method='bilinear', fun='mean', na.rm=T)
+# tt=extract(chl.gsm.8d[[140]], coordinates(c(test$lon[i], test$lat[i])), method='bilinear', fun='mean', na.rm=T)
+
+
+coordinates(wod.chl.df2)=~lon+lat #transform to Spatialpointsdataframe
+wod.chl.df2$schl=NA
+for(i in 1:length(wod.chl.df2$schl)){
+  wod.chl.df2$schl[i]=extract(chl.gsm.8d[[140]], wod.chl.df2[i,], method='bilinear', fun='mean', na.rm=T)
+}
 
 
 
