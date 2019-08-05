@@ -541,15 +541,20 @@ wod.chl.df2$DOYmed=round((wod.chl.df2$sDOY1+wod.chl.df2$sDOY2)/2, digits=0) # me
 wod.chl.df2$ddif=wod.chl.df2$DOY-wod.chl.df2$DOYmed # difference from median satellite date
 
 ### now extract from raster
-i=2746
-tt=extract(chl.gsm.8d[[140]], wod.chl.df2[i,], method='bilinear', fun='mean', na.rm=T)
-# tt=extract(chl.gsm.8d[[140]], coordinates(c(test$lon[i], test$lat[i])), method='bilinear', fun='mean', na.rm=T)
+# i=2746
+# tt=extract(chl.gsm.8d[[140]], wod.chl.df2[i,], method='bilinear', fun='mean', na.rm=T)
 
-
+wod.chl.df2$gsm=NA
+wod.chl.df2$oc5=NA
+wod.chl.df2$av=NA
 coordinates(wod.chl.df2)=~lon+lat #transform to Spatialpointsdataframe
-wod.chl.df2$schl=NA
 for(i in 1:length(wod.chl.df2$schl)){
-  wod.chl.df2$schl[i]=extract(chl.gsm.8d[[140]], wod.chl.df2[i,], method='bilinear', fun='mean', na.rm=T)
+  wod.chl.df2$gsm[i]=extract(chl.gsm.8d[[wod.chl.df2$smatch[i]]], wod.chl.df2[i,], method='bilinear', fun='mean', na.rm=T)
+  wod.chl.df2$av[i]=extract(chl.av.8d[[wod.chl.df2$smatch[i]]], wod.chl.df2[i,], method='bilinear', fun='mean', na.rm=T)
+  wod.chl.df2$oc5[i]=extract(chl.oc5.8d[[wod.chl.df2$smatch[i]]], wod.chl.df2[i,], method='bilinear', fun='mean', na.rm=T)
+  if (i%%100==0){
+    print(paste(i, ' of ', length(wod.chl.df2$schl), sep=''))
+  }
 }
 
 
