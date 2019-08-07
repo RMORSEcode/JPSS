@@ -549,4 +549,20 @@ for(i in 1:length(wod.chl.df2$schl)){
 
 
 
+test2=test[complete.cases(test$gsm),]
+test2=test2[complete.cases(test2$chl),]
+
+reg1=lm((test2$chl)~(test2$gsm))
+summary(reg1)
+
+colorpal=viridis::viridis(8)
+plot(log10(test$chl)~log10(test$gsm), type='n')#, color=colorpal[test$ddif+4])
+# points(log10(test$chl),log10(test$gsm), type='p', col=colorpal[test$ddif+4])
+points(log10(test$gsm), log10(test$chl), type='p', col=colorpal[test$ddif+4])
+abline(0,1)
+
+plot(x=test$gsm, y=test$chl, log='xy') #, color=colorpal[test$ddif+4])
+abline(0,1)
+
+barplot(table(test$ddif))
 
