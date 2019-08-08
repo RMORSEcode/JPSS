@@ -3,6 +3,7 @@
 # filenames <- getURL(url, userpwd="ftp_hermes:hermes%", ftp.use.epsv = FALSE, dirlistonly = TRUE) #reading filenames from ftp-server
 
 # OCCI https://esa-oceancolour-cci.org/
+# https://rsg.pml.ac.uk/thredds/ncss/grid/CCI_ALL-v4.0-8DAY/dataset.html
 # NCSS Request URL
 # https://rsg.pml.ac.uk/thredds/ncss/grid/CCI_ALL-v4.0-8DAY/dataset.html
 # /thredds/ncss/CCI_ALL-v4.0-8DAY
@@ -160,23 +161,19 @@ colnames(chl.occi)=lat.occi
 rownames(chl.occi)=lon.occi
 nc_close(nc1)
 
-setwd('H:/1 RM/3 gridded data/OCCI')
-nc1=nc_open('CCI_ALL-v4.0-8DAY.nc')
-lon.occi=ncvar_get(nc1, 'lon')
-lat.occi=ncvar_get(nc1, 'lat')
-chl.occi=ncvar_get(nc1, 'chlor_a')
-time.occi=ncvar_get(nc1, 'time') #days since Jan 1, 1970
 test=month.day.year(time.occi, c(1,1,1970)) # these are not 8-days apart.... something odd
+occi.date=data.frame(test)
+occi.date$F1=paste(occi.date[,3], occi.date[,1], occi.date[,2], sep='-')
+occi.date$DOY=as.numeric(strftime(occi.date$F1, '%j'))
+ddiff=diff(occi.date$DOY)
+occi.date$diff=c(0, ddiff) # see OC-CCI manual in JPSS/calibration folder for list of missing dates, explains why some are not 8d
 
-plot(raster(t(chl.occi[,,5])), add=F)
-m=raster(t(chl.occi[,,5]))
-
-m=(t(chl.occi[,,3]))
-dimnames(m) <- list(lat=as.numeric(lat.occi), lon=as.numeric(lon.occi))
-t=raster(m)
-extent(t)=c(-80, -60, 32, 48)
-crs(t)="+proj=longlat +datum=WGS84 +no_defs +ellps=WGS84 +towgs84=0,0,0" 
-plot(t)
+# m=(t(chl.occi[,,3]))
+# dimnames(m) <- list(lat=as.numeric(lat.occi), lon=as.numeric(lon.occi))
+# t=raster(m)
+# extent(t)=c(-80, -60, 32, 48)
+# crs(t)="+proj=longlat +datum=WGS84 +no_defs +ellps=WGS84 +towgs84=0,0,0" 
+# plot(t)
 
 # occi=brick((chl.occi))
 # extent(t)=c(-80, -60, 32, 48)
@@ -571,6 +568,9 @@ for(i in 1:length(wod.chl.df2$lon)){
 
 wod.chl.df2$DOYmed=round((wod.chl.df2$sDOY1+wod.chl.df2$sDOY2)/2, digits=0) # median satellite DOY
 wod.chl.df2$ddif=wod.chl.df2$DOY-wod.chl.df2$DOYmed # difference from median satellite date
+
+
+
 
 ### now extract from raster
 # i=2746
