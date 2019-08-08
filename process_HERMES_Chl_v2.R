@@ -168,6 +168,15 @@ chl.occi=ncvar_get(nc1, 'chlor_a')
 time.occi=ncvar_get(nc1, 'time') #days since Jan 1, 1970
 test=month.day.year(time.occi, c(1,1,1970)) # these are not 8-days apart.... something odd
 
+plot(raster(t(chl.occi[,,5])), add=F)
+m=raster(t(chl.occi[,,5]))
+
+m=(t(chl.occi[,,5]))
+dimnames(m) <- list(lat=as.numeric(lat.occi), lon=as.numeric(lon.occi))
+t=raster(m)
+plot(t)
+
+
 ### HERMES 8-day composites ###
 # setwd('G:/1 RM/3 gridded data/HERMES merged CHL 25km')
 setwd("C:/Users/ryan.morse/Desktop/Iomega Drive Backup 20171012/1 RM/3 gridded data/HERMES_8day")
@@ -294,6 +303,9 @@ lines(m.gsm[30,], col='red')
 #NY
 plot(m.av[17,], type='l', main='Box 17 Hudson River')
 lines(m.gsm[17,], col='red')
+
+plot((m.av[1,]-m.gsm[1,]), type='l')
+abline(h=0, lty=2)
 #
 plot(m.av[26,], type='l', main='Box 26 GBK outer shelf')
 lines(m.gsm[26,], col='red')
@@ -302,6 +314,7 @@ ii=6
 plot(m.oc5[ii,], type='l', main=paste('Box',ii))
 lines(m.gsm[ii,], col='red')
 lines(m.av[ii,], col='blue')
+
 
 
 ## spring yearly means stacked raster - these are already monthly means, so just take mean for season and stack
@@ -403,16 +416,7 @@ ii=data.frame(files.11GSM)
 files.11GSM=files.11GSM[c(1:13,15:20)] 
 files.12GSM=list.files(wd, pattern='1201');files.12GSM=grep(files.12GSM, pattern='_GSM-', inv=F, value=T)
 ii=data.frame(files.12GSM)
-files.12GSM=files.12GSM[c(1:14,16:20)] 
-
-
-
-
-# s=stack()
-# for (i in 1:length(files.01GSM)){
-#   r <- raster(files.01GSM[i],  varname = "CHL1_mean")
-#   s=stack(s, r)
-# }
+files.12GSM=files.12GSM[c(1:14,16:20)]
 
 # Chl.time=seq(ISOdate(1998,1,15), ISOdate(2016,12,15), "month") # monthly mean values 1998-2016
 
@@ -559,4 +563,37 @@ for(i in 1:length(wod.chl.df2$schl)){
 
 
 
+test2=test[complete.cases(test$gsm),]
+test2=test2[complete.cases(test2$chl),]
 
+
+colorpal=viridis::viridis(8)
+# plot(log10(test$chl)~log10(test$gsm), type='n')#, color=colorpal[test$ddif+4])
+# # points(log10(test$chl),log10(test$gsm), type='p', col=colorpal[test$ddif+4])
+# points(log10(test$gsm), log10(test$chl), type='p', col=colorpal[test$ddif+4])
+# abline(0,1)
+
+# Non log transformed data
+plot(test$chl~test$oc5, type='n')#, color=colorpal[test$ddif+4])
+points(test$oc5, test$chl, type='p', col=colorpal[test$ddif+4])
+abline(0,1)
+reg1=lm(test$chl~test$oc5)
+summary(reg1)
+abline(reg1$coefficients[1], reg1$coefficients[2], col='red')
+
+# plot(x=test$gsm, y=test$chl, log='xy') #, color=colorpal[test$ddif+4])
+# abline(0,1)
+# abline(reg1$coefficients[1], reg1$coefficients[2], col='blue')
+# barplot(table(test$ddif))
+
+## log transform both X and Y
+x=log10(test$gsm+0.001)
+y=log10(test$chl+0.001)
+reg1=lm(y~x)
+summary(reg1)
+xy=data.frame(x,y)
+xy=xy[complete.cases(x),]
+plot(y~x, type='n')#, log='xy')#, color=colorpal[test$ddif+4])
+points(log10(test$gsm), log10(test$chl), type='p', col=colorpal[test$ddif+4])
+abline(0,1)
+abline(reg1$coefficients[1], reg1$coefficients[2], col='red')
