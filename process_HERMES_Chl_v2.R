@@ -10,7 +10,7 @@
 
 library(raster)
 library(mgcv)
-library(sp)
+# library(sp)
 library(maptools)
 library(marmap)
 library(maps)
@@ -171,10 +171,38 @@ test=month.day.year(time.occi, c(1,1,1970)) # these are not 8-days apart.... som
 plot(raster(t(chl.occi[,,5])), add=F)
 m=raster(t(chl.occi[,,5]))
 
-m=(t(chl.occi[,,5]))
+m=(t(chl.occi[,,3]))
 dimnames(m) <- list(lat=as.numeric(lat.occi), lon=as.numeric(lon.occi))
 t=raster(m)
+extent(t)=c(-80, -60, 32, 48)
+crs(t)="+proj=longlat +datum=WGS84 +no_defs +ellps=WGS84 +towgs84=0,0,0" 
 plot(t)
+
+# occi=brick((chl.occi))
+# extent(t)=c(-80, -60, 32, 48)
+# crs(t)="+proj=longlat +datum=WGS84 +no_defs +ellps=WGS84 +towgs84=0,0,0" 
+
+## loop over and stack
+bb=c(-80, -60, 32, 48)
+m2=t(chl.occi[,,1])
+# m2=t(m)#[ncol(m):1,] # flip and transpose matrix
+occi=raster(m2)
+extent(occi)=bb
+crs(occi)="+proj=longlat +datum=WGS84 +no_defs +ellps=WGS84 +towgs84=0,0,0" 
+for(i in 2:dim(chl.occi)[3]){
+m2=t(chl.occi[,,i])
+# m2=t(m)#[ncol(m):1,] # flip and transpose matrix
+xx=raster(m2)
+extent(xx)=bb
+crs(xx)="+proj=longlat +datum=WGS84 +no_defs +ellps=WGS84 +towgs84=0,0,0" 
+# plot(xx)
+occi=stack(occi, xx)
+}
+
+
+
+
+
 
 
 ### HERMES 8-day composites ###
