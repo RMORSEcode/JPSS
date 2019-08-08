@@ -168,6 +168,15 @@ chl.occi=ncvar_get(nc1, 'chlor_a')
 time.occi=ncvar_get(nc1, 'time') #days since Jan 1, 1970
 test=month.day.year(time.occi, c(1,1,1970)) # these are not 8-days apart.... something odd
 
+plot(raster(t(chl.occi[,,5])), add=F)
+m=raster(t(chl.occi[,,5]))
+
+m=(t(chl.occi[,,5]))
+dimnames(m) <- list(lat=as.numeric(lat.occi), lon=as.numeric(lon.occi))
+t=raster(m)
+plot(t)
+
+
 ### HERMES 8-day composites ###
 # setwd('G:/1 RM/3 gridded data/HERMES merged CHL 25km')
 setwd("C:/Users/ryan.morse/Desktop/Iomega Drive Backup 20171012/1 RM/3 gridded data/HERMES_8day")
@@ -552,17 +561,34 @@ for(i in 1:length(wod.chl.df2$schl)){
 test2=test[complete.cases(test$gsm),]
 test2=test2[complete.cases(test2$chl),]
 
-reg1=lm((test2$chl)~(test2$gsm))
-summary(reg1)
 
 colorpal=viridis::viridis(8)
-plot(log10(test$chl)~log10(test$gsm), type='n')#, color=colorpal[test$ddif+4])
-# points(log10(test$chl),log10(test$gsm), type='p', col=colorpal[test$ddif+4])
+# plot(log10(test$chl)~log10(test$gsm), type='n')#, color=colorpal[test$ddif+4])
+# # points(log10(test$chl),log10(test$gsm), type='p', col=colorpal[test$ddif+4])
+# points(log10(test$gsm), log10(test$chl), type='p', col=colorpal[test$ddif+4])
+# abline(0,1)
+
+# Non log transformed data
+plot(test$chl~test$oc5, type='n')#, color=colorpal[test$ddif+4])
+points(test$oc5, test$chl, type='p', col=colorpal[test$ddif+4])
+abline(0,1)
+reg1=lm(test$chl~test$oc5)
+summary(reg1)
+abline(reg1$coefficients[1], reg1$coefficients[2], col='red')
+
+# plot(x=test$gsm, y=test$chl, log='xy') #, color=colorpal[test$ddif+4])
+# abline(0,1)
+# abline(reg1$coefficients[1], reg1$coefficients[2], col='blue')
+# barplot(table(test$ddif))
+
+## log transform both X and Y
+x=log10(test$gsm+0.001)
+y=log10(test$chl+0.001)
+reg1=lm(y~x)
+summary(reg1)
+xy=data.frame(x,y)
+xy=xy[complete.cases(x),]
+plot(y~x, type='n')#, log='xy')#, color=colorpal[test$ddif+4])
 points(log10(test$gsm), log10(test$chl), type='p', col=colorpal[test$ddif+4])
 abline(0,1)
-
-plot(x=test$gsm, y=test$chl, log='xy') #, color=colorpal[test$ddif+4])
-abline(0,1)
-
-barplot(table(test$ddif))
-
+abline(reg1$coefficients[1], reg1$coefficients[2], col='red')
