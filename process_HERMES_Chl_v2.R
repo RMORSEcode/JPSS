@@ -150,11 +150,16 @@ dev.off()
 
 ### Get 8-day OCCI chlorophyll data
 setwd('/media/ryan/Iomega_HDD/1 RM/3 gridded data/OCCI')
+setwd('C:/Users/ryan.morse/Desktop/Iomega Drive Backup 20171012/1 RM/3 gridded data/OCCI')
 setwd('H:/1 RM/3 gridded data/OCCI')
-nc1=nc_open('CCI_ALL-v4.0-8DAY.nc')
+nc1=nc_open('CCI_ALL-v4.0-8DAY.nc') # just chl
+nc1=nc_open('C:/Users/ryan.morse/Downloads/CCI_ALL-v4.0-8DAY.nc') # new file with error estimates
+
 lon.occi=ncvar_get(nc1, 'lon')
 lat.occi=ncvar_get(nc1, 'lat')
 chl.occi=ncvar_get(nc1, 'chlor_a')
+chl.occi.bias=ncvar_get(nc1, 'chlor_a_log10_bias') # only if using new file in downloads (2GB)
+chl.occi.rmsd=ncvar_get(nc1, 'chlor_a_log10_rmsd') # only if using new file in downloads (2GB)
 time.occi=ncvar_get(nc1, 'time') #days since Jan 1, 1970
 dim(chl.occi)
 colnames(chl.occi)=lat.occi
@@ -179,7 +184,7 @@ occi.date$diff=c(0, ddiff) # see OC-CCI manual in JPSS/calibration folder for li
 # extent(t)=c(-80, -60, 32, 48)
 # crs(t)="+proj=longlat +datum=WGS84 +no_defs +ellps=WGS84 +towgs84=0,0,0" 
 
-## loop over and stack
+## Chl_loop over and stack
 bb=c(-80, -60, 32, 48)
 m2=t(chl.occi[,,1])
 # m2=t(m)#[ncol(m):1,] # flip and transpose matrix
@@ -187,18 +192,51 @@ occi=raster(m2)
 extent(occi)=bb
 crs(occi)="+proj=longlat +datum=WGS84 +no_defs +ellps=WGS84 +towgs84=0,0,0" 
 for(i in 2:dim(chl.occi)[3]){
-m2=t(chl.occi[,,i])
-# m2=t(m)#[ncol(m):1,] # flip and transpose matrix
-xx=raster(m2)
-extent(xx)=bb
-crs(xx)="+proj=longlat +datum=WGS84 +no_defs +ellps=WGS84 +towgs84=0,0,0" 
-# plot(xx)
-occi=stack(occi, xx)
+  m2=t(chl.occi[,,i])
+  # m2=t(m)#[ncol(m):1,] # flip and transpose matrix
+  xx=raster(m2)
+  extent(xx)=bb
+  crs(xx)="+proj=longlat +datum=WGS84 +no_defs +ellps=WGS84 +towgs84=0,0,0" 
+  # plot(xx)
+  occi=stack(occi, xx)
+  print(i)
 }
 
+## Chl_RMSD loop over and stack
+bb=c(-80, -60, 32, 48)
+m2=t(chl.occi.rmsd[,,1])
+# m2=t(m)#[ncol(m):1,] # flip and transpose matrix
+occi.rmsd=raster(m2)
+extent(occi.rmsd)=bb
+crs(occi.rmsd)="+proj=longlat +datum=WGS84 +no_defs +ellps=WGS84 +towgs84=0,0,0" 
+for(i in 2:dim(chl.occi.rmsd)[3]){
+  m2=t(chl.occi.rmsd[,,i])
+  # m2=t(m)#[ncol(m):1,] # flip and transpose matrix
+  xx=raster(m2)
+  extent(xx)=bb
+  crs(xx)="+proj=longlat +datum=WGS84 +no_defs +ellps=WGS84 +towgs84=0,0,0" 
+  # plot(xx)
+  occi.rmsd=stack(occi.rmsd, xx)
+  print(i)
+}
 
-
-
+## Chl_Bias loop over and stack
+bb=c(-80, -60, 32, 48)
+m2=t(chl.occi.bias[,,1])
+# m2=t(m)#[ncol(m):1,] # flip and transpose matrix
+occi.bias=raster(m2)
+extent(occi.bias)=bb
+crs(occi.bias)="+proj=longlat +datum=WGS84 +no_defs +ellps=WGS84 +towgs84=0,0,0" 
+for(i in 2:dim(chl.occi.bias)[3]){
+  m2=t(chl.occi.bias[,,i])
+  # m2=t(m)#[ncol(m):1,] # flip and transpose matrix
+  xx=raster(m2)
+  extent(xx)=bb
+  crs(xx)="+proj=longlat +datum=WGS84 +no_defs +ellps=WGS84 +towgs84=0,0,0" 
+  # plot(xx)
+  occi.bias=stack(occi.bias, xx)
+  print(i)
+}
 
 
 
