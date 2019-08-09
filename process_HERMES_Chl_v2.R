@@ -576,12 +576,12 @@ barplot(table(round(wod.chl.df2$chl, digits=1)))
 barplot(table(wod.chl.df2$month))
 barplot(table(wod.chl.df2$year))
 
-coordinates(wod.chl.df2)=~lon+lat #transform to Spatialpointsdataframe
-proj4string(wod.chl.df2)=CRS("+proj=longlat +datum=NAD83 +no_defs +ellps=GRS80 +towgs84=0,0,0") #ensure same projection
-pointsin=over(wod.chl.df2, NES.shp) #find which boxes samples belong to
-map("worldHires", xlim=c(-77,-65),ylim=c(35,45), fill=T,border=0,col="gray70")
-map.axes(las=1)
-points(wod.chl.df2)
+# coordinates(wod.chl.df2)=~lon+lat #transform to Spatialpointsdataframe
+# proj4string(wod.chl.df2)=CRS("+proj=longlat +datum=NAD83 +no_defs +ellps=GRS80 +towgs84=0,0,0") #ensure same projection
+# pointsin=over(wod.chl.df2, NES.shp) #find which boxes samples belong to
+# map("worldHires", xlim=c(-77,-65),ylim=c(35,45), fill=T,border=0,col="gray70")
+# map.axes(las=1)
+# points(wod.chl.df2)
 
 ### build initial list of time matchups - indicates the dimension of the chl raster stack to extract data from
 # yy=unique(wod.chl.df2$year) # unique years
@@ -590,7 +590,7 @@ wod.chl.df2$smatch=NA
 wod.chl.df2$sDOY1=NA
 wod.chl.df2$sDOY2=NA
 for(i in 1:length(wod.chl.df2$lon)){
-  ylim=which(dates.8d$Y1==wod.chl.df2$year[i])
+  ylim=which(dates.8d$X1==wod.chl.df2$year[i])
   xmn=which(dates.8d$DOY1[ylim]<=wod.chl.df2$DOY[i])#[dates.8d$Y1==yj]
   xmx=which(dates.8d$DOY2[ylim]>=wod.chl.df2$DOY[i])#[dates.8d$Y1==yj]
   both=ylim[which(xmn%in%xmx)]
@@ -608,58 +608,60 @@ wod.chl.df2$DOYmed=round((wod.chl.df2$sDOY1+wod.chl.df2$sDOY2)/2, digits=0) # me
 wod.chl.df2$ddif=wod.chl.df2$DOY-wod.chl.df2$DOYmed # difference from median satellite date
 
 
-
-
 ### now extract from raster
 # i=2746
 # tt=extract(chl.gsm.8d[[140]], wod.chl.df2[i,], method='bilinear', fun='mean', na.rm=T)
 
+wod.chl.df2=wod.chl.df2[complete.cases(wod.chl.df2$smatch),]
+WOD=wod.chl.df2
 wod.chl.df2$gsm=NA
 wod.chl.df2$oc5=NA
 wod.chl.df2$av=NA
 coordinates(wod.chl.df2)=~lon+lat #transform to Spatialpointsdataframe
-for(i in 1:length(wod.chl.df2$schl)){
+for(i in 1:length(wod.chl.df2$chl)){
   wod.chl.df2$gsm[i]=extract(chl.gsm.8d[[wod.chl.df2$smatch[i]]], wod.chl.df2[i,], method='bilinear', fun='mean', na.rm=T)
   wod.chl.df2$av[i]=extract(chl.av.8d[[wod.chl.df2$smatch[i]]], wod.chl.df2[i,], method='bilinear', fun='mean', na.rm=T)
   wod.chl.df2$oc5[i]=extract(chl.oc5.8d[[wod.chl.df2$smatch[i]]], wod.chl.df2[i,], method='bilinear', fun='mean', na.rm=T)
   if (i%%100==0){
-    print(paste(i, ' of ', length(wod.chl.df2$schl), sep=''))
+    print(paste(i, ' of ', length(wod.chl.df2$chl), sep=''))
   }
 }
 
 
-
-test2=test[complete.cases(test$gsm),]
-test2=test2[complete.cases(test2$chl),]
+WOD$gsm=wod.chl.df2$gsm
+WOD$av=wod.chl.df2$av
+WOD$oc5=wod.chl.df2$oc5
+WOD=WOD[complete.cases(WOD$gsm),]
+WOD=WOD[complete.cases(WOD$chl),]
 
 
 colorpal=viridis::viridis(8)
-# plot(log10(test$chl)~log10(test$gsm), type='n')#, color=colorpal[test$ddif+4])
-# # points(log10(test$chl),log10(test$gsm), type='p', col=colorpal[test$ddif+4])
-# points(log10(test$gsm), log10(test$chl), type='p', col=colorpal[test$ddif+4])
+# plot(log10(WOD$chl)~log10(WOD$gsm), type='n')#, color=colorpal[WOD$ddif+4])
+# # points(log10(WOD$chl),log10(WOD$gsm), type='p', col=colorpal[WOD$ddif+4])
+# points(log10(WOD$gsm), log10(WOD$chl), type='p', col=colorpal[WOD$ddif+4])
 # abline(0,1)
 
 # Non log transformed data
-plot(test$chl~test$oc5, type='n')#, color=colorpal[test$ddif+4])
-points(test$oc5, test$chl, type='p', col=colorpal[test$ddif+4])
+plot(WOD$chl~WOD$oc5, type='n')#, color=colorpal[WOD$ddif+4])
+points(WOD$oc5, WOD$chl, type='p', col=colorpal[WOD$ddif+4])
 abline(0,1)
-reg1=lm(test$chl~test$oc5)
+reg1=lm(WOD$chl~WOD$oc5)
 summary(reg1)
 abline(reg1$coefficients[1], reg1$coefficients[2], col='red')
 
-# plot(x=test$gsm, y=test$chl, log='xy') #, color=colorpal[test$ddif+4])
+# plot(x=WOD$gsm, y=WOD$chl, log='xy') #, color=colorpal[WOD$ddif+4])
 # abline(0,1)
 # abline(reg1$coefficients[1], reg1$coefficients[2], col='blue')
-# barplot(table(test$ddif))
+# barplot(table(WOD$ddif))
 
 ## log transform both X and Y
-x=log10(test$gsm+0.001)
-y=log10(test$chl+0.001)
+x=log10(WOD$gsm+0.001)
+y=log10(WOD$chl+0.001)
 reg1=lm(y~x)
 summary(reg1)
 xy=data.frame(x,y)
 xy=xy[complete.cases(x),]
-plot(y~x, type='n')#, log='xy')#, color=colorpal[test$ddif+4])
-points(log10(test$gsm), log10(test$chl), type='p', col=colorpal[test$ddif+4])
+plot(y~x, type='n')#, log='xy')#, color=colorpal[WOD$ddif+4])
+points(log10(WOD$gsm), log10(WOD$chl), type='p', col=colorpal[WOD$ddif+4])
 abline(0,1)
 abline(reg1$coefficients[1], reg1$coefficients[2], col='red')
