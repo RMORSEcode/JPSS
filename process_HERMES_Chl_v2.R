@@ -173,6 +173,10 @@ occi.date$DOY=as.numeric(strftime(occi.date$F1, '%j'))
 ddiff=diff(occi.date$DOY)
 occi.date$diff=c(0, ddiff) # see OC-CCI manual in JPSS/calibration folder for list of missing dates, explains why some are not 8d
 
+table(occi.date$year)
+occi.date$week=c(seq(from=31, to=46, by=1),  rep(seq(from=1, to=46, by=1), 21))
+
+
 # m=(t(chl.occi[,,3]))
 # dimnames(m) <- list(lat=as.numeric(lat.occi), lon=as.numeric(lon.occi))
 # t=raster(m)
@@ -287,6 +291,10 @@ dates.8d$F1=paste(dates.8d[,1], dates.8d[,2], dates.8d[,3], sep='-')
 dates.8d$F2=paste(dates.8d[,4], dates.8d[,5], dates.8d[,6], sep='-')
 dates.8d$DOY1=as.numeric(strftime(dates.8d$F1, '%j'))
 dates.8d$DOY2=as.numeric(strftime(dates.8d$F2, '%j'))
+
+## add week of year (should be 46 per year for 8-day files)
+table(dates.8d$X1)
+dates.8d$week=c(seq(from=31, to=46, by=1),  rep(seq(from=1, to=46, by=1), 21), seq(from=1, to=23, by=1))
 
 ### create raster stacks of data 
 chl.av.8d=nc2raster(files.chl1.av[,1], 'CHL1_mean')
@@ -604,6 +612,27 @@ for(i in 1:length(wod.chl.df2$lon)){
   }
 }
 
+
+### build initial list of time matchups for occi (or use same smatch??)
+
+# wod.chl.df2$occimatch=NA
+# # wod.chl.df2$sDOY1=NA
+# # wod.chl.df2$sDOY2=NA
+# for(i in 1:length(wod.chl.df2$lon)){
+#   ylim=which(occi.date$year==wod.chl.df2$year[i])
+#   xmn=which(occi.date$DOY[ylim]<=wod.chl.df2$DOY[i])#[occi.date$Y1==yj]
+#   xmx=which(occi.date$DOY[ylim]>=wod.chl.df2$DOY[i])#[occi.date$Y1==yj]
+#   both=ylim[which(xmn%in%xmx)]
+#   if(length(both)<1){
+#     next
+#   }
+#   else {
+#     wod.chl.df2$smatch[i]=both
+#     wod.chl.df2$sDOY1[i]=occi.date$DOY1[both]
+#     wod.chl.df2$sDOY2[i]=occi.date$DOY2[both]
+#   }
+# }
+
 wod.chl.df2$DOYmed=round((wod.chl.df2$sDOY1+wod.chl.df2$sDOY2)/2, digits=0) # median satellite DOY
 wod.chl.df2$ddif=wod.chl.df2$DOY-wod.chl.df2$DOYmed # difference from median satellite date
 
@@ -617,15 +646,27 @@ WOD=wod.chl.df2
 wod.chl.df2$gsm=NA
 wod.chl.df2$oc5=NA
 wod.chl.df2$av=NA
+wod.chl.df2$occi=NA
 coordinates(wod.chl.df2)=~lon+lat #transform to Spatialpointsdataframe
 for(i in 1:length(wod.chl.df2$chl)){
-  wod.chl.df2$gsm[i]=extract(chl.gsm.8d[[wod.chl.df2$smatch[i]]], wod.chl.df2[i,], method='bilinear', fun='mean', na.rm=T)
-  wod.chl.df2$av[i]=extract(chl.av.8d[[wod.chl.df2$smatch[i]]], wod.chl.df2[i,], method='bilinear', fun='mean', na.rm=T)
-  wod.chl.df2$oc5[i]=extract(chl.oc5.8d[[wod.chl.df2$smatch[i]]], wod.chl.df2[i,], method='bilinear', fun='mean', na.rm=T)
+  # wod.chl.df2$gsm[i]=extract(chl.gsm.8d[[wod.chl.df2$smatch[i]]], wod.chl.df2[i,], method='bilinear', fun='mean', na.rm=T)
+  # wod.chl.df2$av[i]=extract(chl.av.8d[[wod.chl.df2$smatch[i]]], wod.chl.df2[i,], method='bilinear', fun='mean', na.rm=T)
+  # wod.chl.df2$oc5[i]=extract(chl.oc5.8d[[wod.chl.df2$smatch[i]]], wod.chl.df2[i,], method='bilinear', fun='mean', na.rm=T)
+  wod.chl.df2$occi[i]=extract(occi[[wod.chl.df2$smatch[i]]], wod.chl.df2[i,], method='bilinear', fun='mean', na.rm=T)
+    if (i%%100==0){
+    print(paste(i, ' of ', length(wod.chl.df2$chl), sep=''))
+  }
+}
+
+
+wod.chl.df2$occi=NA
+for(i in 1:length(wod.chl.df2$chl)){
+  wod.chl.df2$occi[i]=extract(occi[[wod.chl.df2$occimatch[i]]], wod.chl.df2[i,], method='bilinear', fun='mean', na.rm=T)
   if (i%%100==0){
     print(paste(i, ' of ', length(wod.chl.df2$chl), sep=''))
   }
 }
+
 
 
 WOD$gsm=wod.chl.df2$gsm
@@ -665,3 +706,11 @@ plot(y~x, type='n')#, log='xy')#, color=colorpal[WOD$ddif+4])
 points(log10(WOD$gsm), log10(WOD$chl), type='p', col=colorpal[WOD$ddif+4])
 abline(0,1)
 abline(reg1$coefficients[1], reg1$coefficients[2], col='red')
+
+
+library(plotrix)
+taylor.diagram(wod.chl.df2$chl, wod.chl.df2$oc5, col='red')
+taylor.diagram(wod.chl.df2$chl, wod.chl.df2$gsm, add=T, col='blue')
+taylor.diagram(wod.chl.df2$chl, wod.chl.df2$av, add=T, col='green')
+taylor.diagram(wod.chl.df2$chl, wod.chl.df2$occi, add=T, col='black')
+
