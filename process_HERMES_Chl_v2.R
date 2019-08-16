@@ -613,25 +613,7 @@ for(i in 1:length(wod.chl.df2$lon)){
 }
 
 
-### build initial list of time matchups for occi (or use same smatch??)
 
-# wod.chl.df2$occimatch=NA
-# # wod.chl.df2$sDOY1=NA
-# # wod.chl.df2$sDOY2=NA
-# for(i in 1:length(wod.chl.df2$lon)){
-#   ylim=which(occi.date$year==wod.chl.df2$year[i])
-#   xmn=which(occi.date$DOY[ylim]<=wod.chl.df2$DOY[i])#[occi.date$Y1==yj]
-#   xmx=which(occi.date$DOY[ylim]>=wod.chl.df2$DOY[i])#[occi.date$Y1==yj]
-#   both=ylim[which(xmn%in%xmx)]
-#   if(length(both)<1){
-#     next
-#   }
-#   else {
-#     wod.chl.df2$smatch[i]=both
-#     wod.chl.df2$sDOY1[i]=occi.date$DOY1[both]
-#     wod.chl.df2$sDOY2[i]=occi.date$DOY2[both]
-#   }
-# }
 
 wod.chl.df2$DOYmed=round((wod.chl.df2$sDOY1+wod.chl.df2$sDOY2)/2, digits=0) # median satellite DOY
 wod.chl.df2$ddif=wod.chl.df2$DOY-wod.chl.df2$DOYmed # difference from median satellite date
@@ -659,13 +641,7 @@ for(i in 1:length(wod.chl.df2$chl)){
 }
 
 
-wod.chl.df2$occi=NA
-for(i in 1:length(wod.chl.df2$chl)){
-  wod.chl.df2$occi[i]=extract(occi[[wod.chl.df2$occimatch[i]]], wod.chl.df2[i,], method='bilinear', fun='mean', na.rm=T)
-  if (i%%100==0){
-    print(paste(i, ' of ', length(wod.chl.df2$chl), sep=''))
-  }
-}
+
 
 
 
