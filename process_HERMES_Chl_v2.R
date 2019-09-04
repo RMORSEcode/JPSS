@@ -587,9 +587,9 @@ barplot(table(wod.chl.df2$year))
 # coordinates(wod.chl.df2)=~lon+lat #transform to Spatialpointsdataframe
 # proj4string(wod.chl.df2)=CRS("+proj=longlat +datum=NAD83 +no_defs +ellps=GRS80 +towgs84=0,0,0") #ensure same projection
 # pointsin=over(wod.chl.df2, NES.shp) #find which boxes samples belong to
-# map("worldHires", xlim=c(-77,-65),ylim=c(35,45), fill=T,border=0,col="gray70")
-# map.axes(las=1)
-# points(wod.chl.df2)
+map("worldHires", xlim=c(-77,-65),ylim=c(35,45), fill=T,border=0,col="gray70")
+map.axes(las=1)
+points(wod.chl.df2)
 
 ### build initial list of time matchups - indicates the dimension of the chl raster stack to extract data from
 # yy=unique(wod.chl.df2$year) # unique years
@@ -639,9 +639,10 @@ for(i in 1:length(wod.chl.df2$chl)){
     print(paste(i, ' of ', length(wod.chl.df2$chl), sep=''))
   }
 }
-
-
-
+## add time to dataframe for satellite matchup
+wod.chl.df2$jtime=wod.chl.df2$jday-floor(wod.chl.df2$jday)
+wod.chl.df2$time=format(times(wod.chl.df2$jtime))
+write.csv(wod.chl.df2, file='WOD_surf.csv')
 
 
 
@@ -689,4 +690,13 @@ taylor.diagram(wod.chl.df2$chl, wod.chl.df2$oc5, col='red')
 taylor.diagram(wod.chl.df2$chl, wod.chl.df2$gsm, add=T, col='blue')
 taylor.diagram(wod.chl.df2$chl, wod.chl.df2$av, add=T, col='green')
 taylor.diagram(wod.chl.df2$chl, wod.chl.df2$occi, add=T, col='black')
+
+#subset to low or high chl
+test=wod.chl.df2[which(wod.chl.df2$chl<1),]
+taylor.diagram(test$chl, test$oc5, col='red')
+taylor.diagram(test$chl, test$gsm, add=T, col='blue')
+taylor.diagram(test$chl, test$av, add=T, col='green')
+taylor.diagram(test$chl, test$occi, add=T, col='black')
+
+
 
