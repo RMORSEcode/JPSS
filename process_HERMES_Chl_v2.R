@@ -592,9 +592,9 @@ barplot(table(wod.chl.df2$year))
 # coordinates(wod.chl.df2)=~lon+lat #transform to Spatialpointsdataframe
 # proj4string(wod.chl.df2)=CRS("+proj=longlat +datum=NAD83 +no_defs +ellps=GRS80 +towgs84=0,0,0") #ensure same projection
 # pointsin=over(wod.chl.df2, NES.shp) #find which boxes samples belong to
-# map("worldHires", xlim=c(-77,-65),ylim=c(35,45), fill=T,border=0,col="gray70")
-# map.axes(las=1)
-# points(wod.chl.df2)
+map("worldHires", xlim=c(-77,-65),ylim=c(35,45), fill=T,border=0,col="gray70")
+map.axes(las=1)
+points(wod.chl.df2)
 
 ### build initial list of time matchups - indicates the dimension of the chl raster stack to extract data from
 # yy=unique(wod.chl.df2$year) # unique years
@@ -618,25 +618,7 @@ for(i in 1:length(wod.chl.df2$lon)){
 }
 
 
-### build initial list of time matchups for occi (or use same smatch??)
 
-# wod.chl.df2$occimatch=NA
-# # wod.chl.df2$sDOY1=NA
-# # wod.chl.df2$sDOY2=NA
-# for(i in 1:length(wod.chl.df2$lon)){
-#   ylim=which(occi.date$year==wod.chl.df2$year[i])
-#   xmn=which(occi.date$DOY[ylim]<=wod.chl.df2$DOY[i])#[occi.date$Y1==yj]
-#   xmx=which(occi.date$DOY[ylim]>=wod.chl.df2$DOY[i])#[occi.date$Y1==yj]
-#   both=ylim[which(xmn%in%xmx)]
-#   if(length(both)<1){
-#     next
-#   }
-#   else {
-#     wod.chl.df2$smatch[i]=both
-#     wod.chl.df2$sDOY1[i]=occi.date$DOY1[both]
-#     wod.chl.df2$sDOY2[i]=occi.date$DOY2[both]
-#   }
-# }
 
 wod.chl.df2$DOYmed=round((wod.chl.df2$sDOY1+wod.chl.df2$sDOY2)/2, digits=0) # median satellite DOY
 wod.chl.df2$ddif=wod.chl.df2$DOY-wod.chl.df2$DOYmed # difference from median satellite date
@@ -662,15 +644,10 @@ for(i in 1:length(wod.chl.df2$chl)){
     print(paste(i, ' of ', length(wod.chl.df2$chl), sep=''))
   }
 }
-
-
-wod.chl.df2$occi=NA
-for(i in 1:length(wod.chl.df2$chl)){
-  wod.chl.df2$occi[i]=extract(occi[[wod.chl.df2$occimatch[i]]], wod.chl.df2[i,], method='bilinear', fun='mean', na.rm=T)
-  if (i%%100==0){
-    print(paste(i, ' of ', length(wod.chl.df2$chl), sep=''))
-  }
-}
+## add time to dataframe for satellite matchup
+wod.chl.df2$jtime=wod.chl.df2$jday-floor(wod.chl.df2$jday)
+wod.chl.df2$time=format(times(wod.chl.df2$jtime))
+write.csv(wod.chl.df2, file='WOD_surf.csv')
 
 
 
@@ -718,4 +695,13 @@ taylor.diagram(wod.chl.df2$chl, wod.chl.df2$oc5, col='red')
 taylor.diagram(wod.chl.df2$chl, wod.chl.df2$gsm, add=T, col='blue')
 taylor.diagram(wod.chl.df2$chl, wod.chl.df2$av, add=T, col='green')
 taylor.diagram(wod.chl.df2$chl, wod.chl.df2$occi, add=T, col='black')
+
+#subset to low or high chl
+test=wod.chl.df2[which(wod.chl.df2$chl<1),]
+taylor.diagram(test$chl, test$oc5, col='red')
+taylor.diagram(test$chl, test$gsm, add=T, col='blue')
+taylor.diagram(test$chl, test$av, add=T, col='green')
+taylor.diagram(test$chl, test$occi, add=T, col='black')
+
+
 
