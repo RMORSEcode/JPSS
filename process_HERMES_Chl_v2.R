@@ -9,6 +9,11 @@
 # /thredds/ncss/CCI_ALL-v4.0-8DAY
 # https://rsg.pml.ac.uk/thredds/ncss/CCI_ALL-v4.0-8DAY?var=chlor_a&north=48&west=-80&east=-60&south=32&horizStride=1&time_start=1997-09-04T00%3A00%3A00Z&time_end=2018-12-27T00%3A00%3A00Z&timeStride=1&addLatLon=true
 
+#get OCCI v4.2
+gribfile='http://rsg.pml.ac.uk/thredds/ncss/CCI_ALL-v4.2-8DAY?var=chlor_a&var=chlor_a_log10_bias&var=chlor_a_log10_rmsd&north=48&west=-76&east=-64&south=35&disableProjSubset=on&horizStride=1&time_start=1997-09-04T00%3A00%3A00Z&time_end=2019-12-27T00%3A00%3A00Z&timeStride=1&addLatLon=true'
+download.file(gribfile,'junk.nc',mode = "wb")
+
+
 library(raster)
 library(mgcv)
 # library(sp)
