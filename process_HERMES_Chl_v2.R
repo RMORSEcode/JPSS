@@ -148,6 +148,9 @@ dev.off()
 # CHL2 is the chlorophyll concentration (mg/m3) for Case 2 waters (see section validity); L3 merge: AV; sensors: MER, OLA; Doerffer and Schiller (2007)
 # CHL2 uses the a Neural Network algorithm;The product is valid for case 2 waters, i.e. waters where inorganic particles dominate over phytoplankton (typically in coastal waters).
 
+# NCSS request URL
+# https://rsg.pml.ac.uk/thredds/ncss/CCI_ALL-v4.2-8DAY?var=chlor_a&var=chlor_a_log10_bias&var=chlor_a_log10_rmsd&north=48&west=-76&east=-60&south=35&disableProjSubset=on&horizStride=1&time_start=1997-09-04T00%3A00%3A00Z&time_end=2019-12-27T00%3A00%3A00Z&timeStride=1&addLatLon=true
+
 ### Get 8-day OCCI chlorophyll data
 setwd('/media/ryan/Iomega_HDD/1 RM/3 gridded data/OCCI')
 setwd('C:/Users/ryan.morse/Desktop/Iomega Drive Backup 20171012/1 RM/3 gridded data/OCCI')
@@ -686,17 +689,55 @@ abline(reg1$coefficients[1], reg1$coefficients[2], col='red')
 
 
 library(plotrix)
-taylor.diagram(wod.chl.df2$chl, wod.chl.df2$oc5, col='red')
+taylor.diagram(wod.chl.df2$chl, wod.chl.df2$oc5, col='red', main='WOD in situ chl vs 8-d combined')
 taylor.diagram(wod.chl.df2$chl, wod.chl.df2$gsm, add=T, col='blue')
 taylor.diagram(wod.chl.df2$chl, wod.chl.df2$av, add=T, col='green')
 taylor.diagram(wod.chl.df2$chl, wod.chl.df2$occi, add=T, col='black')
 
 #subset to low or high chl
-test=wod.chl.df2[which(wod.chl.df2$chl<1),]
-taylor.diagram(test$chl, test$oc5, col='red')
+limitc=1
+test=wod.chl.df2[which(wod.chl.df2$chl<limitc),]
+taylor.diagram(test$chl, test$oc5, col='red', main=paste('Chl < ', limitc, ';',' n=',length(test), sep=''))
 taylor.diagram(test$chl, test$gsm, add=T, col='blue')
 taylor.diagram(test$chl, test$av, add=T, col='green')
 taylor.diagram(test$chl, test$occi, add=T, col='black')
 
 
+#extract just lat/lons for lines
+gbk.lonlat =as.data.frame(lapply(slot(gbk, "polygons"), function(x) lapply(slot(x, "Polygons"), function(y) slot(y, "coords"))))
+gom.lonlat =as.data.frame(lapply(slot(gom, "polygons"), function(x) lapply(slot(x, "Polygons"), function(y) slot(y, "coords"))))
+mab.lonlat =as.data.frame(lapply(slot(mab, "polygons"), function(x) lapply(slot(x, "Polygons"), function(y) slot(y, "coords"))))
+scs.lonlat =as.data.frame(lapply(slot(scs, "polygons"), function(x) lapply(slot(x, "Polygons"), function(y) slot(y, "coords"))))
+nes.lonlat =as.data.frame(lapply(slots(), function))
+gom.mat=as.matrix(gom.lonlat)
+gbk.mat=as.matrix(gbk.lonlat)
+mab.mat=as.matrix(mab.lonlat)
+scs.mat=as.matrix(scs.lonlat)
+m4=as.matrix(wod.chl.df2@coords)
+wod.chl.df2$epu=NA
+wod.chl.df2$epu[which(in.out(gbk.mat, m4))]='GBK'
+wod.chl.df2$epu[which(in.out(gom.mat, m4))]='GOM'
+wod.chl.df2$epu[which(in.out(scs.mat, m4))]='SCS'
+wod.chl.df2$epu[which(in.out(mab.mat, m4))]='MAB'
+
+#subset to region
+limitc='GOM' #GBK SCS MAB
+test=wod.chl.df2[which(wod.chl.df2$epu==limitc),]
+taylor.diagram(test$chl, test$oc5, col='red', main=paste(limitc, ' only;',' n=',length(test), sep=''))
+taylor.diagram(test$chl, test$gsm, add=T, col='blue')
+taylor.diagram(test$chl, test$av, add=T, col='green')
+taylor.diagram(test$chl, test$occi, add=T, col='black')
+barplot(table(test$month), main=limitc)
+barplot(table(test$year), main=limitc)
+
+map("worldHires", xlim=c(-77,-65),ylim=c(35,45), fill=T,border=0,col="gray70")
+map.axes(las=1)
+points(test@coords, pch=19)
+
+limitc='NA' #GBK SCS MAB
+test=wod.chl.df2[is.na(wod.chl.df2$epu),]
+taylor.diagram(test$chl, test$oc5, col='red', main=paste(limitc, ' only;',' n=',length(test), sep=''))
+taylor.diagram(test$chl, test$gsm, add=T, col='blue')
+taylor.diagram(test$chl, test$av, add=T, col='green')
+taylor.diagram(test$chl, test$occi, add=T, col='black')
 
