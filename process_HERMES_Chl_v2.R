@@ -311,7 +311,7 @@ chl.gsm.8d=nc2raster(files.chl1.gsm[,1], 'CHL1_mean')
 chl.oc5.8d=nc2raster(files.oc5[,1], 'CHL-OC5_mean')
 
 #testing
-plotChlRaster(chl.av.8d, 5, 5, limit=T, av.dates.8d)
+plotChlRaster(chl.av.8d, 5, 7, limit=T, av.dates.8d)
 
 ### HERMES monthly composites ###
 # setwd('G:/1 RM/3 gridded data/HERMES merged CHL 25km')
@@ -547,6 +547,7 @@ points(vrs)
 
 ### get calibration Chl from WOD
 d2='C:/Users/ryan.morse/Documents/GitHub/JPSS/calibration/WOD'
+setwd(d2)
 ncfiles=list.files(path=d2, pattern='.nc')
 nc.str=strsplit(ncfiles, '.nc')
 
@@ -578,7 +579,7 @@ nc1$var$time$units
 # wod.osd.time=ncvar_get(nc1, 'time') #days since Jan 1, 1770
 
 ## WOD CTD samples, surface depth
-wod.chl.df=data.frame(wod.chl[which(wod.z==0)], wod.lon, wod.lat, wod.z[which(wod.z==0)], wod.time)
+wod.chl.df=data.frame(wod.chl[which(wod.z==0)], wod.lon, wod.lat, wod.z[which(wod.z==0)], wod.time) #surface bin
 test=month.day.year(wod.chl.df$wod.time, c(1,1,1770))
 wod.chl.df$month=test$month
 wod.chl.df$day=test$day
@@ -598,7 +599,7 @@ barplot(table(wod.chl.df2$year))
 # pointsin=over(wod.chl.df2, NES.shp) #find which boxes samples belong to
 map("worldHires", xlim=c(-77,-65),ylim=c(35,45), fill=T,border=0,col="gray70")
 map.axes(las=1)
-points(wod.chl.df2)
+points(wod.chl.df2$lon, wod.chl.df2$lat)
 
 ### build initial list of time matchups - indicates the dimension of the chl raster stack to extract data from
 # yy=unique(wod.chl.df2$year) # unique years
@@ -640,10 +641,10 @@ wod.chl.df2$av=NA
 wod.chl.df2$occi=NA
 coordinates(wod.chl.df2)=~lon+lat #transform to Spatialpointsdataframe
 for(i in 1:length(wod.chl.df2$chl)){
-  # wod.chl.df2$gsm[i]=extract(chl.gsm.8d[[wod.chl.df2$smatch[i]]], wod.chl.df2[i,], method='bilinear', fun='mean', na.rm=T)
-  # wod.chl.df2$av[i]=extract(chl.av.8d[[wod.chl.df2$smatch[i]]], wod.chl.df2[i,], method='bilinear', fun='mean', na.rm=T)
-  # wod.chl.df2$oc5[i]=extract(chl.oc5.8d[[wod.chl.df2$smatch[i]]], wod.chl.df2[i,], method='bilinear', fun='mean', na.rm=T)
-  wod.chl.df2$occi[i]=extract(occi[[wod.chl.df2$smatch[i]]], wod.chl.df2[i,], method='bilinear', fun='mean', na.rm=T)
+  wod.chl.df2$gsm[i]=extract(chl.gsm.8d[[wod.chl.df2$smatch[i]]], wod.chl.df2[i,], method='bilinear', fun='mean', na.rm=T)
+  wod.chl.df2$av[i]=extract(chl.av.8d[[wod.chl.df2$smatch[i]]], wod.chl.df2[i,], method='bilinear', fun='mean', na.rm=T)
+  wod.chl.df2$oc5[i]=extract(chl.oc5.8d[[wod.chl.df2$smatch[i]]], wod.chl.df2[i,], method='bilinear', fun='mean', na.rm=T)
+  # wod.chl.df2$occi[i]=extract(occi[[wod.chl.df2$smatch[i]]], wod.chl.df2[i,], method='bilinear', fun='mean', na.rm=T)
     if (i%%100==0){
     print(paste(i, ' of ', length(wod.chl.df2$chl), sep=''))
   }
@@ -651,13 +652,14 @@ for(i in 1:length(wod.chl.df2$chl)){
 ## add time to dataframe for satellite matchup
 wod.chl.df2$jtime=wod.chl.df2$jday-floor(wod.chl.df2$jday)
 wod.chl.df2$time=format(times(wod.chl.df2$jtime))
-write.csv(wod.chl.df2, file='WOD_surf.csv')
+write.csv(wod.chl.df2, file='WOD_surf_occiv4_2.csv')
 
 
 
 WOD$gsm=wod.chl.df2$gsm
 WOD$av=wod.chl.df2$av
 WOD$oc5=wod.chl.df2$oc5
+WOD$occi=wod.chl.df2$occi
 WOD=WOD[complete.cases(WOD$gsm),]
 WOD=WOD[complete.cases(WOD$chl),]
 
@@ -714,7 +716,7 @@ gbk.lonlat =as.data.frame(lapply(slot(gbk, "polygons"), function(x) lapply(slot(
 gom.lonlat =as.data.frame(lapply(slot(gom, "polygons"), function(x) lapply(slot(x, "Polygons"), function(y) slot(y, "coords"))))
 mab.lonlat =as.data.frame(lapply(slot(mab, "polygons"), function(x) lapply(slot(x, "Polygons"), function(y) slot(y, "coords"))))
 scs.lonlat =as.data.frame(lapply(slot(scs, "polygons"), function(x) lapply(slot(x, "Polygons"), function(y) slot(y, "coords"))))
-nes.lonlat =as.data.frame(lapply(slots(), function))
+# nes.lonlat =as.data.frame(lapply(slots(), function))
 gom.mat=as.matrix(gom.lonlat)
 gbk.mat=as.matrix(gbk.lonlat)
 mab.mat=as.matrix(mab.lonlat)
@@ -728,13 +730,17 @@ wod.chl.df2$epu[which(in.out(mab.mat, m4))]='MAB'
 
 #subset to region
 limitc='GOM' #GBK SCS MAB
+# limitc='All EPU' #GBK SCS MAB
 test=wod.chl.df2[which(wod.chl.df2$epu==limitc),]
-taylor.diagram(test$chl, test$oc5, col='red', main=paste(limitc, ' only;',' n=',length(test), sep=''))
-taylor.diagram(test$chl, test$gsm, add=T, col='blue')
-taylor.diagram(test$chl, test$av, add=T, col='green')
-taylor.diagram(test$chl, test$occi, add=T, col='black')
+# test=wod.chl.df2[which(wod.chl.df2$epu=='GOM' | wod.chl.df2$epu=='GBK' | wod.chl.df2$epu=='MAB'),]
+taylor.diagram(test$chl, test$oc5, col='red', main=paste(limitc, ' only;',' n=',length(test), sep=''), pos.cor = F)
+taylor.diagram(test$chl, test$gsm, add=T, col='blue',pos.cor = F)
+taylor.diagram(test$chl, test$av, add=T, col='green',pos.cor = F)
+taylor.diagram(test$chl, test$occi, add=T, col='black',pos.cor = F)
 barplot(table(test$month), main=limitc)
 barplot(table(test$year), main=limitc)
+
+
 
 map("worldHires", xlim=c(-77,-65),ylim=c(35,45), fill=T,border=0,col="gray70")
 map.axes(las=1)
@@ -742,8 +748,16 @@ points(test@coords, pch=19)
 
 limitc='NA' #GBK SCS MAB
 test=wod.chl.df2[is.na(wod.chl.df2$epu),]
-taylor.diagram(test$chl, test$oc5, col='red', main=paste(limitc, ' only;',' n=',length(test), sep=''))
+taylor.diagram(test$chl, test$oc5, col='red', main=paste(limitc, ' only;',' n=',length(test), sep=''),pos.cor = F)
 taylor.diagram(test$chl, test$gsm, add=T, col='blue')
 taylor.diagram(test$chl, test$av, add=T, col='green')
 taylor.diagram(test$chl, test$occi, add=T, col='black')
+
+#extract data for shapes:
+w.occi.nes=extract_calc(occi[[1:1028]], NES.shp)
+occi.date$NESchl=w.occi.nes[1,]
+w.occi.gom=extract_calc(occi[[1:1028]], gom)
+occi.date$GOMchl=w.occi.gom[1,]
+w.occi.gbk=extract_calc(occi[[1:1028]], gbk)
+occi.date$GBKchl=w.occi.gbk[1,]
 
