@@ -167,6 +167,7 @@ nc1=nc_open('C:/Users/ryan.morse/Documents/GitHub/JPSS/CCI_ALL-v4.2-8DAY.nc')
 lon.occi=ncvar_get(nc1, 'lon')
 lat.occi=ncvar_get(nc1, 'lat')
 chl.occi=ncvar_get(nc1, 'chlor_a')
+lg.chl.occi=log10(chl.occi)
 chl.occi.bias=ncvar_get(nc1, 'chlor_a_log10_bias') # only if using new file in downloads (2GB)
 chl.occi.rmsd=ncvar_get(nc1, 'chlor_a_log10_rmsd') # only if using new file in downloads (2GB)
 time.occi=ncvar_get(nc1, 'time') #days since Jan 1, 1970
@@ -214,6 +215,25 @@ for(i in 2:dim(chl.occi)[3]){
   occi=stack(occi, xx)
   print(i)
 }
+
+## Log Chl_loop over and stack
+bb=c(-80, -60, 32, 48)
+m2=t(lg.chl.occi[,,1])
+# m2=t(m)#[ncol(m):1,] # flip and transpose matrix
+lg.occi=raster(m2)
+extent(lg.occi)=bb
+crs(lg.occi)="+proj=longlat +datum=WGS84 +no_defs +ellps=WGS84 +towgs84=0,0,0" 
+for(i in 2:dim(lg.chl.occi)[3]){
+  m2=t(lg.chl.occi[,,i])
+  # m2=t(m)#[ncol(m):1,] # flip and transpose matrix
+  xx=raster(m2)
+  extent(xx)=bb
+  crs(xx)="+proj=longlat +datum=WGS84 +no_defs +ellps=WGS84 +towgs84=0,0,0" 
+  # plot(xx)
+  lg.occi=stack(lg.occi, xx)
+  print(i)
+}
+
 
 ## Chl_RMSD loop over and stack
 bb=c(-80, -60, 32, 48)
@@ -760,4 +780,61 @@ w.occi.gom=extract_calc(occi[[1:1028]], gom)
 occi.date$GOMchl=w.occi.gom[1,]
 w.occi.gbk=extract_calc(occi[[1:1028]], gbk)
 occi.date$GBKchl=w.occi.gbk[1,]
+w.occi.mab=extract_calc(occi[[1:1028]], mab)
+occi.date$MABchl=w.occi.mab[1,]
 
+w.occi.nes.lg=extract_calc(lg.occi[[1:1028]], NES.shp)
+occi.date$NESchllg=w.occi.nes.lg[1,]
+w.occi.gom=extract_calc(occi[[1:1028]], gom)
+occi.date$GOMchl=w.occi.gom[1,]
+w.occi.gbk=extract_calc(occi[[1:1028]], gbk)
+occi.date$GBKchl=w.occi.gbk[1,]
+w.occi.mab=extract_calc(occi[[1:1028]], mab)
+occi.date$MABchl=w.occi.mab[1,]
+
+
+w.occi.nes.rmsd=extract_calc(occi.rmsd[[1:1028]], NES.shp)
+occi.date$NESchlrmsd=w.occi.nes.rmsd[1,]
+w.occi.gom.rmsd=extract_calc(occi.rmsd[[1:1028]], gom)
+occi.date$GOMchlrmsd=w.occi.gom.rmsd[1,]
+w.occi.gbk.rmsd=extract_calc(occi.rmsd[[1:1028]], gbk)
+occi.date$GBKchlrmsd=w.occi.gbk.rmsd[1,]
+w.occi.mab.rmsd=extract_calc(occi.rmsd[[1:1028]], mab)
+occi.date$MABchlrmsd=w.occi.mab.rmsd[1,]
+
+library(dplyr)
+tt=select(occi.date, month, year, NESchl) %>% group_by(year) %>% summarise(mean=mean(NESchl))
+plot(tt, type='b', main=paste("NES annual Chl"))
+tt.sp=select(occi.date, month, year, NESchl) %>% filter(month<=6) %>% group_by(year) %>% summarise(mean=mean(NESchl))
+plot(tt.sp, type='b',main=paste("NES Jan-Jun Chl"))
+tt.fl=select(occi.date, month, year, NESchl) %>% filter(month>6) %>% group_by(year) %>% summarise(mean=mean(NESchl))
+plot(tt.fl, type='b', main=paste("NES Jul-Dec Chl"))
+
+tt=select(occi.date, month, year, GBKchl) %>% group_by(year) %>% summarise(mean=mean(GBKchl))
+plot(tt, type='b', main=paste("GBK annual Chl"))
+tt.sp=select(occi.date, month, year, GBKchl) %>% filter(month<=6) %>% group_by(year) %>% summarise(mean=mean(GBKchl))
+plot(tt.sp, type='b',main=paste("GBK Jan-Jun Chl"))
+tt.fl=select(occi.date, month, year, GBKchl) %>% filter(month>6) %>% group_by(year) %>% summarise(mean=mean(GBKchl))
+plot(tt.fl, type='b', main=paste("GBKchl Jul-Dec Chl"))
+
+tt=select(occi.date, month, year, GOMchl) %>% group_by(year) %>% summarise(mean=mean(GOMchl))
+plot(tt, type='b', main=paste("GOM annual Chl"))
+tt.sp=select(occi.date, month, year, GOMchl) %>% filter(month<=6) %>% group_by(year) %>% summarise(mean=mean(GOMchl))
+plot(tt.sp, type='b',main=paste("GOM Jan-Jun Chl"))
+tt.fl=select(occi.date, month, year, GOMchl) %>% filter(month>6) %>% group_by(year) %>% summarise(mean=mean(GOMchl))
+plot(tt.fl, type='b', main=paste("GOM Jul-Dec Chl"))
+
+tt=select(occi.date, month, year, MABchl) %>% group_by(year) %>% summarise(mean=mean(MABchl))
+plot(tt, type='b', main=paste("MAB annual Chl"))
+tt.sp=select(occi.date, month, year, MABchl) %>% filter(month<=6) %>% group_by(year) %>% summarise(mean=mean(MABchl))
+plot(tt.sp, type='b',main=paste("MAB Jan-Jun Chl"))
+tt.fl=select(occi.date, month, year, MABchl) %>% filter(month>6) %>% group_by(year) %>% summarise(mean=mean(MABchl))
+plot(tt.fl, type='b', main=paste("MAB Jul-Dec Chl"))
+
+## now using log chl data, then taking exponent to standardize
+tt=select(occi.date, month, year, NESchllg) %>% group_by(year) %>% summarise(mean=mean(NESchllg)) %>% mutate(mean=10^mean)
+plot(tt, type='b', main=paste("NES annual Chl"))
+tt.sp=select(occi.date, month, year, NESchl) %>% filter(month<=6) %>% group_by(year) %>% summarise(mean=mean(NESchl))
+plot(tt.sp, type='b',main=paste("NES Jan-Jun Chl"))
+tt.fl=select(occi.date, month, year, NESchl) %>% filter(month>6) %>% group_by(year) %>% summarise(mean=mean(NESchl))
+plot(tt.fl, type='b', main=paste("NES Jul-Dec Chl"))
