@@ -131,6 +131,10 @@ gom.scs.shp=gUnion(gom, scs, byid=F, id=NULL)
 mab.gbk.shp=gUnion(mab, gbk, byid=F, id=NULL)
 NES.shp=gUnion(mab.gbk.shp, gom.scs.shp, byid=F, id=NULL)
 
+setwd("C:/Users/ryan.morse/Desktop/NES_5area")
+nes.five=rgdal::readOGR('nes_gbk_gome_gomw_mabn_mabsPoly.shp')
+
+
 ## grab ecomon strata and plot
 setwd('C:/Users/ryan.morse/Desktop/Iomega Drive Backup 20171012/1 RM/2 Plankton Spatial Plots/shapefiles')
 ecomon.strata=rgdal::readOGR("EcoMon_strata.shp")
@@ -160,9 +164,9 @@ dev.off()
 setwd('/media/ryan/Iomega_HDD/1 RM/3 gridded data/OCCI')
 setwd('C:/Users/ryan.morse/Desktop/Iomega Drive Backup 20171012/1 RM/3 gridded data/OCCI')
 setwd('H:/1 RM/3 gridded data/OCCI')
-nc1=nc_open('CCI_ALL-v4.0-8DAY.nc') # just chl
-nc1=nc_open('C:/Users/ryan.morse/Downloads/CCI_ALL-v4.0-8DAY.nc') # new file with error estimates
-nc1=nc_open('C:/Users/ryan.morse/Documents/GitHub/JPSS/CCI_ALL-v4.2-8DAY.nc')
+# nc1=nc_open('CCI_ALL-v4.0-8DAY.nc') # just chl
+# nc1=nc_open('C:/Users/ryan.morse/Downloads/CCI_ALL-v4.0-8DAY.nc') # new file with error estimates
+nc1=nc_open('C:/Users/ryan.morse/Documents/GitHub/JPSS/CCI_ALL-v4.2-8DAY.nc') #udpated with data fix 2019
 
 lon.occi=ncvar_get(nc1, 'lon')
 lat.occi=ncvar_get(nc1, 'lat')
@@ -660,6 +664,7 @@ wod.chl.df2$oc5=NA
 wod.chl.df2$av=NA
 wod.chl.df2$occi=NA
 coordinates(wod.chl.df2)=~lon+lat #transform to Spatialpointsdataframe
+### method=bilinear #interpolates value from 4 nearest raster cells #simple is for cell only
 for(i in 1:length(wod.chl.df2$chl)){
   wod.chl.df2$gsm[i]=extract(chl.gsm.8d[[wod.chl.df2$smatch[i]]], wod.chl.df2[i,], method='bilinear', fun='mean', na.rm=T)
   wod.chl.df2$av[i]=extract(chl.av.8d[[wod.chl.df2$smatch[i]]], wod.chl.df2[i,], method='bilinear', fun='mean', na.rm=T)
@@ -760,6 +765,8 @@ taylor.diagram(test$chl, test$occi, add=T, col='black',pos.cor = F)
 barplot(table(test$month), main=limitc)
 barplot(table(test$year), main=limitc)
 
+plot(log(test$chl)~log(test$gsm), type='p')
+plot(log(test$chl)~log(test$occi), type='p')
 
 
 map("worldHires", xlim=c(-77,-65),ylim=c(35,45), fill=T,border=0,col="gray70")
@@ -793,7 +800,7 @@ w.occi.mab=extract_calc(occi[[1:1028]], mab)
 occi.date$MABchl=w.occi.mab[1,]
 
 
-w.occi.nes.rmsd=extract_calc(occi.rmsd[[1:1028]], NES.shp)
+w.occi.nes.rmsd=extract_calc(occi.rmsd[[1:1028]], NES.shp) #NES
 occi.date$NESchlrmsd=w.occi.nes.rmsd[1,]
 w.occi.gom.rmsd=extract_calc(occi.rmsd[[1:1028]], gom)
 occi.date$GOMchlrmsd=w.occi.gom.rmsd[1,]
@@ -832,7 +839,7 @@ tt.fl=select(occi.date, month, year, MABchl) %>% filter(month>6) %>% group_by(ye
 plot(tt.fl, type='b', main=paste("MAB Jul-Dec Chl"))
 
 ## now using log chl data, then taking exponent to standardize
-tt=select(occi.date, month, year, NESchllg) %>% group_by(year) %>% summarise(mean=mean(NESchllg)) %>% mutate(mean=10^mean)
+tt2=select(occi.date, month, year, NESchllg) %>% group_by(year) %>% summarise(mean=mean(NESchllg)) %>% mutate(mean=10^mean)
 plot(tt, type='b', main=paste("NES annual Chl"))
 tt.sp=select(occi.date, month, year, NESchl) %>% filter(month<=6) %>% group_by(year) %>% summarise(mean=mean(NESchl))
 plot(tt.sp, type='b',main=paste("NES Jan-Jun Chl"))
