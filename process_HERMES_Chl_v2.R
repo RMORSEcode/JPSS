@@ -153,21 +153,16 @@ dev.off()
 # CHL2 is the chlorophyll concentration (mg/m3) for Case 2 waters (see section validity); L3 merge: AV; sensors: MER, OLA; Doerffer and Schiller (2007)
 # CHL2 uses the a Neural Network algorithm;The product is valid for case 2 waters, i.e. waters where inorganic particles dominate over phytoplankton (typically in coastal waters).
 
-# NCSS request URL
-# https://rsg.pml.ac.uk/thredds/ncss/CCI_ALL-v4.2-8DAY?var=chlor_a&var=chlor_a_log10_bias&var=chlor_a_log10_rmsd&north=48&west=-76&east=-60&south=35&disableProjSubset=on&horizStride=1&time_start=1997-09-04T00%3A00%3A00Z&time_end=2019-12-27T00%3A00%3A00Z&timeStride=1&addLatLon=true
-
 ### Get 8-day OCCI chlorophyll data
 setwd('/media/ryan/Iomega_HDD/1 RM/3 gridded data/OCCI')
 setwd('C:/Users/ryan.morse/Desktop/Iomega Drive Backup 20171012/1 RM/3 gridded data/OCCI')
 setwd('H:/1 RM/3 gridded data/OCCI')
 nc1=nc_open('CCI_ALL-v4.0-8DAY.nc') # just chl
 nc1=nc_open('C:/Users/ryan.morse/Downloads/CCI_ALL-v4.0-8DAY.nc') # new file with error estimates
-nc1=nc_open('C:/Users/ryan.morse/Documents/GitHub/JPSS/CCI_ALL-v4.2-8DAY.nc')
 
 lon.occi=ncvar_get(nc1, 'lon')
 lat.occi=ncvar_get(nc1, 'lat')
 chl.occi=ncvar_get(nc1, 'chlor_a')
-lg.chl.occi=log10(chl.occi)
 chl.occi.bias=ncvar_get(nc1, 'chlor_a_log10_bias') # only if using new file in downloads (2GB)
 chl.occi.rmsd=ncvar_get(nc1, 'chlor_a_log10_rmsd') # only if using new file in downloads (2GB)
 time.occi=ncvar_get(nc1, 'time') #days since Jan 1, 1970
@@ -215,25 +210,6 @@ for(i in 2:dim(chl.occi)[3]){
   occi=stack(occi, xx)
   print(i)
 }
-
-## Log Chl_loop over and stack
-bb=c(-80, -60, 32, 48)
-m2=t(lg.chl.occi[,,1])
-# m2=t(m)#[ncol(m):1,] # flip and transpose matrix
-lg.occi=raster(m2)
-extent(lg.occi)=bb
-crs(lg.occi)="+proj=longlat +datum=WGS84 +no_defs +ellps=WGS84 +towgs84=0,0,0" 
-for(i in 2:dim(lg.chl.occi)[3]){
-  m2=t(lg.chl.occi[,,i])
-  # m2=t(m)#[ncol(m):1,] # flip and transpose matrix
-  xx=raster(m2)
-  extent(xx)=bb
-  crs(xx)="+proj=longlat +datum=WGS84 +no_defs +ellps=WGS84 +towgs84=0,0,0" 
-  # plot(xx)
-  lg.occi=stack(lg.occi, xx)
-  print(i)
-}
-
 
 ## Chl_RMSD loop over and stack
 bb=c(-80, -60, 32, 48)
@@ -331,7 +307,7 @@ chl.gsm.8d=nc2raster(files.chl1.gsm[,1], 'CHL1_mean')
 chl.oc5.8d=nc2raster(files.oc5[,1], 'CHL-OC5_mean')
 
 #testing
-plotChlRaster(chl.av.8d, 5, 7, limit=T, av.dates.8d)
+plotChlRaster(chl.av.8d, 5, 5, limit=T, av.dates.8d)
 
 ### HERMES monthly composites ###
 # setwd('G:/1 RM/3 gridded data/HERMES merged CHL 25km')
@@ -567,7 +543,6 @@ points(vrs)
 
 ### get calibration Chl from WOD
 d2='C:/Users/ryan.morse/Documents/GitHub/JPSS/calibration/WOD'
-setwd(d2)
 ncfiles=list.files(path=d2, pattern='.nc')
 nc.str=strsplit(ncfiles, '.nc')
 
@@ -599,7 +574,7 @@ nc1$var$time$units
 # wod.osd.time=ncvar_get(nc1, 'time') #days since Jan 1, 1770
 
 ## WOD CTD samples, surface depth
-wod.chl.df=data.frame(wod.chl[which(wod.z==0)], wod.lon, wod.lat, wod.z[which(wod.z==0)], wod.time) #surface bin
+wod.chl.df=data.frame(wod.chl[which(wod.z==0)], wod.lon, wod.lat, wod.z[which(wod.z==0)], wod.time)
 test=month.day.year(wod.chl.df$wod.time, c(1,1,1770))
 wod.chl.df$month=test$month
 wod.chl.df$day=test$day
@@ -619,7 +594,7 @@ barplot(table(wod.chl.df2$year))
 # pointsin=over(wod.chl.df2, NES.shp) #find which boxes samples belong to
 map("worldHires", xlim=c(-77,-65),ylim=c(35,45), fill=T,border=0,col="gray70")
 map.axes(las=1)
-points(wod.chl.df2$lon, wod.chl.df2$lat)
+points(wod.chl.df2)
 
 ### build initial list of time matchups - indicates the dimension of the chl raster stack to extract data from
 # yy=unique(wod.chl.df2$year) # unique years
@@ -661,10 +636,10 @@ wod.chl.df2$av=NA
 wod.chl.df2$occi=NA
 coordinates(wod.chl.df2)=~lon+lat #transform to Spatialpointsdataframe
 for(i in 1:length(wod.chl.df2$chl)){
-  wod.chl.df2$gsm[i]=extract(chl.gsm.8d[[wod.chl.df2$smatch[i]]], wod.chl.df2[i,], method='bilinear', fun='mean', na.rm=T)
-  wod.chl.df2$av[i]=extract(chl.av.8d[[wod.chl.df2$smatch[i]]], wod.chl.df2[i,], method='bilinear', fun='mean', na.rm=T)
-  wod.chl.df2$oc5[i]=extract(chl.oc5.8d[[wod.chl.df2$smatch[i]]], wod.chl.df2[i,], method='bilinear', fun='mean', na.rm=T)
-  # wod.chl.df2$occi[i]=extract(occi[[wod.chl.df2$smatch[i]]], wod.chl.df2[i,], method='bilinear', fun='mean', na.rm=T)
+  # wod.chl.df2$gsm[i]=extract(chl.gsm.8d[[wod.chl.df2$smatch[i]]], wod.chl.df2[i,], method='bilinear', fun='mean', na.rm=T)
+  # wod.chl.df2$av[i]=extract(chl.av.8d[[wod.chl.df2$smatch[i]]], wod.chl.df2[i,], method='bilinear', fun='mean', na.rm=T)
+  # wod.chl.df2$oc5[i]=extract(chl.oc5.8d[[wod.chl.df2$smatch[i]]], wod.chl.df2[i,], method='bilinear', fun='mean', na.rm=T)
+  wod.chl.df2$occi[i]=extract(occi[[wod.chl.df2$smatch[i]]], wod.chl.df2[i,], method='bilinear', fun='mean', na.rm=T)
     if (i%%100==0){
     print(paste(i, ' of ', length(wod.chl.df2$chl), sep=''))
   }
@@ -672,14 +647,13 @@ for(i in 1:length(wod.chl.df2$chl)){
 ## add time to dataframe for satellite matchup
 wod.chl.df2$jtime=wod.chl.df2$jday-floor(wod.chl.df2$jday)
 wod.chl.df2$time=format(times(wod.chl.df2$jtime))
-write.csv(wod.chl.df2, file='WOD_surf_occiv4_2.csv')
+write.csv(wod.chl.df2, file='WOD_surf.csv')
 
 
 
 WOD$gsm=wod.chl.df2$gsm
 WOD$av=wod.chl.df2$av
 WOD$oc5=wod.chl.df2$oc5
-WOD$occi=wod.chl.df2$occi
 WOD=WOD[complete.cases(WOD$gsm),]
 WOD=WOD[complete.cases(WOD$chl),]
 
@@ -717,124 +691,17 @@ abline(reg1$coefficients[1], reg1$coefficients[2], col='red')
 
 
 library(plotrix)
-taylor.diagram(wod.chl.df2$chl, wod.chl.df2$oc5, col='red', main='WOD in situ chl vs 8-d combined')
+taylor.diagram(wod.chl.df2$chl, wod.chl.df2$oc5, col='red')
 taylor.diagram(wod.chl.df2$chl, wod.chl.df2$gsm, add=T, col='blue')
 taylor.diagram(wod.chl.df2$chl, wod.chl.df2$av, add=T, col='green')
 taylor.diagram(wod.chl.df2$chl, wod.chl.df2$occi, add=T, col='black')
 
 #subset to low or high chl
-limitc=1
-test=wod.chl.df2[which(wod.chl.df2$chl<limitc),]
-taylor.diagram(test$chl, test$oc5, col='red', main=paste('Chl < ', limitc, ';',' n=',length(test), sep=''))
+test=wod.chl.df2[which(wod.chl.df2$chl<1),]
+taylor.diagram(test$chl, test$oc5, col='red')
 taylor.diagram(test$chl, test$gsm, add=T, col='blue')
 taylor.diagram(test$chl, test$av, add=T, col='green')
 taylor.diagram(test$chl, test$occi, add=T, col='black')
 
 
-#extract just lat/lons for lines
-gbk.lonlat =as.data.frame(lapply(slot(gbk, "polygons"), function(x) lapply(slot(x, "Polygons"), function(y) slot(y, "coords"))))
-gom.lonlat =as.data.frame(lapply(slot(gom, "polygons"), function(x) lapply(slot(x, "Polygons"), function(y) slot(y, "coords"))))
-mab.lonlat =as.data.frame(lapply(slot(mab, "polygons"), function(x) lapply(slot(x, "Polygons"), function(y) slot(y, "coords"))))
-scs.lonlat =as.data.frame(lapply(slot(scs, "polygons"), function(x) lapply(slot(x, "Polygons"), function(y) slot(y, "coords"))))
-# nes.lonlat =as.data.frame(lapply(slots(), function))
-gom.mat=as.matrix(gom.lonlat)
-gbk.mat=as.matrix(gbk.lonlat)
-mab.mat=as.matrix(mab.lonlat)
-scs.mat=as.matrix(scs.lonlat)
-m4=as.matrix(wod.chl.df2@coords)
-wod.chl.df2$epu=NA
-wod.chl.df2$epu[which(in.out(gbk.mat, m4))]='GBK'
-wod.chl.df2$epu[which(in.out(gom.mat, m4))]='GOM'
-wod.chl.df2$epu[which(in.out(scs.mat, m4))]='SCS'
-wod.chl.df2$epu[which(in.out(mab.mat, m4))]='MAB'
 
-#subset to region
-limitc='GOM' #GBK SCS MAB
-# limitc='All EPU' #GBK SCS MAB
-test=wod.chl.df2[which(wod.chl.df2$epu==limitc),]
-# test=wod.chl.df2[which(wod.chl.df2$epu=='GOM' | wod.chl.df2$epu=='GBK' | wod.chl.df2$epu=='MAB'),]
-taylor.diagram(test$chl, test$oc5, col='red', main=paste(limitc, ' only;',' n=',length(test), sep=''), pos.cor = F)
-taylor.diagram(test$chl, test$gsm, add=T, col='blue',pos.cor = F)
-taylor.diagram(test$chl, test$av, add=T, col='green',pos.cor = F)
-taylor.diagram(test$chl, test$occi, add=T, col='black',pos.cor = F)
-barplot(table(test$month), main=limitc)
-barplot(table(test$year), main=limitc)
-
-
-
-map("worldHires", xlim=c(-77,-65),ylim=c(35,45), fill=T,border=0,col="gray70")
-map.axes(las=1)
-points(test@coords, pch=19)
-
-limitc='NA' #GBK SCS MAB
-test=wod.chl.df2[is.na(wod.chl.df2$epu),]
-taylor.diagram(test$chl, test$oc5, col='red', main=paste(limitc, ' only;',' n=',length(test), sep=''),pos.cor = F)
-taylor.diagram(test$chl, test$gsm, add=T, col='blue')
-taylor.diagram(test$chl, test$av, add=T, col='green')
-taylor.diagram(test$chl, test$occi, add=T, col='black')
-
-#extract data for shapes:
-w.occi.nes=extract_calc(occi[[1:1028]], NES.shp)
-occi.date$NESchl=w.occi.nes[1,]
-w.occi.gom=extract_calc(occi[[1:1028]], gom)
-occi.date$GOMchl=w.occi.gom[1,]
-w.occi.gbk=extract_calc(occi[[1:1028]], gbk)
-occi.date$GBKchl=w.occi.gbk[1,]
-w.occi.mab=extract_calc(occi[[1:1028]], mab)
-occi.date$MABchl=w.occi.mab[1,]
-
-w.occi.nes.lg=extract_calc(lg.occi[[1:1028]], NES.shp)
-occi.date$NESchllg=w.occi.nes.lg[1,]
-w.occi.gom=extract_calc(occi[[1:1028]], gom)
-occi.date$GOMchl=w.occi.gom[1,]
-w.occi.gbk=extract_calc(occi[[1:1028]], gbk)
-occi.date$GBKchl=w.occi.gbk[1,]
-w.occi.mab=extract_calc(occi[[1:1028]], mab)
-occi.date$MABchl=w.occi.mab[1,]
-
-
-w.occi.nes.rmsd=extract_calc(occi.rmsd[[1:1028]], NES.shp)
-occi.date$NESchlrmsd=w.occi.nes.rmsd[1,]
-w.occi.gom.rmsd=extract_calc(occi.rmsd[[1:1028]], gom)
-occi.date$GOMchlrmsd=w.occi.gom.rmsd[1,]
-w.occi.gbk.rmsd=extract_calc(occi.rmsd[[1:1028]], gbk)
-occi.date$GBKchlrmsd=w.occi.gbk.rmsd[1,]
-w.occi.mab.rmsd=extract_calc(occi.rmsd[[1:1028]], mab)
-occi.date$MABchlrmsd=w.occi.mab.rmsd[1,]
-
-library(dplyr)
-tt=select(occi.date, month, year, NESchl) %>% group_by(year) %>% summarise(mean=mean(NESchl))
-plot(tt, type='b', main=paste("NES annual Chl"))
-tt.sp=select(occi.date, month, year, NESchl) %>% filter(month<=6) %>% group_by(year) %>% summarise(mean=mean(NESchl))
-plot(tt.sp, type='b',main=paste("NES Jan-Jun Chl"))
-tt.fl=select(occi.date, month, year, NESchl) %>% filter(month>6) %>% group_by(year) %>% summarise(mean=mean(NESchl))
-plot(tt.fl, type='b', main=paste("NES Jul-Dec Chl"))
-
-tt=select(occi.date, month, year, GBKchl) %>% group_by(year) %>% summarise(mean=mean(GBKchl))
-plot(tt, type='b', main=paste("GBK annual Chl"))
-tt.sp=select(occi.date, month, year, GBKchl) %>% filter(month<=6) %>% group_by(year) %>% summarise(mean=mean(GBKchl))
-plot(tt.sp, type='b',main=paste("GBK Jan-Jun Chl"))
-tt.fl=select(occi.date, month, year, GBKchl) %>% filter(month>6) %>% group_by(year) %>% summarise(mean=mean(GBKchl))
-plot(tt.fl, type='b', main=paste("GBKchl Jul-Dec Chl"))
-
-tt=select(occi.date, month, year, GOMchl) %>% group_by(year) %>% summarise(mean=mean(GOMchl))
-plot(tt, type='b', main=paste("GOM annual Chl"))
-tt.sp=select(occi.date, month, year, GOMchl) %>% filter(month<=6) %>% group_by(year) %>% summarise(mean=mean(GOMchl))
-plot(tt.sp, type='b',main=paste("GOM Jan-Jun Chl"))
-tt.fl=select(occi.date, month, year, GOMchl) %>% filter(month>6) %>% group_by(year) %>% summarise(mean=mean(GOMchl))
-plot(tt.fl, type='b', main=paste("GOM Jul-Dec Chl"))
-
-tt=select(occi.date, month, year, MABchl) %>% group_by(year) %>% summarise(mean=mean(MABchl))
-plot(tt, type='b', main=paste("MAB annual Chl"))
-tt.sp=select(occi.date, month, year, MABchl) %>% filter(month<=6) %>% group_by(year) %>% summarise(mean=mean(MABchl))
-plot(tt.sp, type='b',main=paste("MAB Jan-Jun Chl"))
-tt.fl=select(occi.date, month, year, MABchl) %>% filter(month>6) %>% group_by(year) %>% summarise(mean=mean(MABchl))
-plot(tt.fl, type='b', main=paste("MAB Jul-Dec Chl"))
-
-## now using log chl data, then taking exponent to standardize
-tt=select(occi.date, month, year, NESchllg) %>% group_by(year) %>% summarise(mean=mean(NESchllg)) %>% mutate(mean=10^mean)
-plot(tt, type='b', main=paste("NES annual Chl"))
-tt.sp=select(occi.date, month, year, NESchl) %>% filter(month<=6) %>% group_by(year) %>% summarise(mean=mean(NESchl))
-plot(tt.sp, type='b',main=paste("NES Jan-Jun Chl"))
-tt.fl=select(occi.date, month, year, NESchl) %>% filter(month>6) %>% group_by(year) %>% summarise(mean=mean(NESchl))
-plot(tt.fl, type='b', main=paste("NES Jul-Dec Chl"))
