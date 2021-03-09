@@ -1,6 +1,20 @@
 library (dplyr)
 library(lubridate)
 library(raster)
+library(ncdf4)
+
+## geometric mean for extractions
+gm_mean = function(x, na.rm=TRUE){
+  exp(sum(log(x[x > 0]), na.rm=na.rm) / length(x))
+}
+
+## log normalized mean for extractions
+log_mean = function(x, na.rm=TRUE){
+  x2=log10(x)
+  x3=mean(x2, na.rm=na.rm)
+  x4=10^x3
+  return(x4)
+}
 
 ### Function to extract data using a shapefile
 extract_calc=function(x, shp){
@@ -8,6 +22,34 @@ extract_calc=function(x, shp){
   for(i in 1:dim(x)[3]){
     v=extract(x[[i]], shp)
     v1=lapply(v, function(xx) mean(xx, na.rm=T))
+    v2[i]=list(v1)
+  }
+  m=matrix(unlist(v2), ncol=dim(x)[3], nrow=length(shp@polygons)) # box 0-29 =rows, years =cols
+  # colnames(m)=seq(1998, 2016, by=1)
+  # rownamse(m)=
+  return(m)
+}
+
+### Function to extract data using a shapefile with geometric mean for Chl
+extract_calc_geo=function(x, shp){
+  v2=list()
+  for(i in 1:dim(x)[3]){
+    v=extract(x[[i]], shp)
+    v1=lapply(v, function(xx) gm_mean(xx))
+    v2[i]=list(v1)
+  }
+  m=matrix(unlist(v2), ncol=dim(x)[3], nrow=length(shp@polygons)) # box 0-29 =rows, years =cols
+  # colnames(m)=seq(1998, 2016, by=1)
+  # rownamse(m)=
+  return(m)
+}
+
+### Function to extract data using a shapefile after log normalize data and take mean for Chl
+extract_calc_logmean=function(x, shp){
+  v2=list()
+  for(i in 1:dim(x)[3]){
+    v=extract(x[[i]], shp)
+    v1=lapply(v, function(xx) log_mean(xx))
     v2[i]=list(v1)
   }
   m=matrix(unlist(v2), ncol=dim(x)[3], nrow=length(shp@polygons)) # box 0-29 =rows, years =cols
@@ -28,12 +70,20 @@ nc2raster=function(x, varn){
   return(s)
 }
 
+
+
+### get shapefile for subset
+setwd("C:/Users/ryan.morse/Desktop/NES_5area")
+nes.five=rgdal::readOGR('nes_gbk_gome_gomw_mabn_mabsPoly.shp')
+nes.five=rgdal::readOGR('/home/ryan/Desktop/shapefiles/NES_5_area/nes_gbk_gome_gomw_mabn_mabsPoly.shp')
+### Read in OCCI data
+# nc1=nc_open('C:/Users/ryan.morse/Documents/GitHub/JPSS/CCI_ALL-v4.2-8DAY.nc') #udpated with data fix 2019
+nc1=nc_open('/home/ryan/Git/JPSS/CCI_ALL-v4.2-8DAY.nc') # v4.2 udpated with data fix 2019
+nc1=nc_open('/home/ryan/Git/JPSS/CCI_ALL-v5.0-8DAY (3).nc') # v5.0 20201220 downloaded
 ### get shapefile for subset
 setwd("C:/Users/ryan.morse/Desktop/NES_5area")
 nes.five=rgdal::readOGR('nes_gbk_gome_gomw_mabn_mabsPoly.shp')
 
-### Read in OCCI data
-nc1=nc_open('C:/Users/ryan.morse/Documents/GitHub/JPSS/CCI_ALL-v4.2-8DAY.nc') #udpated with data fix 2019
 lon.occi=ncvar_get(nc1, 'lon')
 lat.occi=ncvar_get(nc1, 'lat')
 chl.occi=ncvar_get(nc1, 'chlor_a')
@@ -46,6 +96,16 @@ colnames(chl.occi)=lat.occi
 rownames(chl.occi)=lon.occi
 nc_close(nc1)
 
+# test=month.day.year(time.occi, c(1,1,1970)) # these are not 8-days apart.... something odd -see manual
+test=as.Date(time.occi, origin="1970-01-01")
+occi.date=data.frame(test)
+# occi.date$F1=paste(occi.date[,3], occi.date[,1], occi.date[,2], sep='-')
+# occi.date$DOY=as.numeric(strftime(occi.date$F1, '%j'))
+# ddiff=diff(occi.date$DOY)
+# occi.date$diff=c(0, ddiff) # see OC-CCI manual in JPSS/calibration folder for list of missing dates, explains why some are not 8d
+
+# table(occi.date$year)
+# occi.date$week=c(seq(from=31, to=46, by=1),  rep(seq(from=1, to=46, by=1), 21))
 test=month.day.year(time.occi, c(1,1,1970)) # these are not 8-days apart.... something odd -see manual
 occi.date=data.frame(test)
 occi.date$F1=paste(occi.date[,3], occi.date[,1], occi.date[,2], sep='-')
@@ -59,6 +119,9 @@ occi.date$week=c(seq(from=31, to=46, by=1),  rep(seq(from=1, to=46, by=1), 21))
 
 ## Chl_loop over and stack rasters
 bb=c(-80, -60, 32, 48)
+bb=c(-77, -64, 35, 45)
+
+
 m2=t(chl.occi[,,1])
 # m2=t(m)#[ncol(m):1,] # flip and transpose matrix
 occi=raster(m2)
@@ -74,6 +137,9 @@ for(i in 2:dim(chl.occi)[3]){
   occi=stack(occi, xx)
   print(i)
 }
+
+save(occi, file='/home/ryan/Git/JPSS/OCCI_v5_8day_stacked_rasters.rda')
+save(test, file='/home/ryan/Git/JPSS/OCCI_v5_8day_stacked_raster_dates.rda')
 
 
 ### create raster stacks of data 
@@ -106,6 +172,20 @@ kf.lg.gsm$mabn=exp(lg.gsm.nes[5,])
 kf.lg.gsm$mabs=exp(lg.gsm.nes[6,])
 save(kf.lg.gsm, file="hermes_8d_log_aggregate_extracted_chl.RData")
 
+### log normalize data, take mean, exponetiate back to values for OCCCI v5
+w.occi.nes=extract_calc_logmean(occi.v5[[1:dim(occi.v5)[3]]], nes.five)
+kf.occi.v5.logmean=occi.date #%>% select(month, day, year, F1, DOY, diff)
+kf.occi.v5.logmean$nes=w.occi.nes[1,]
+kf.occi.v5.logmean$gbk=w.occi.nes[2,]
+kf.occi.v5.logmean$gome=w.occi.nes[3,]
+kf.occi.v5.logmean$gomw=w.occi.nes[4,]
+kf.occi.v5.logmean$mabn=w.occi.nes[5,]
+kf.occi.v5.logmean$mabs=w.occi.nes[6,]
+save(kf.occi.v5.logmean, file="/home/ryan/Git/JPSS/occci_v5_8d_5area_logmean_extracted_chl.RData")
+
+w.occi.nes=extract_calc_geo(occi[[1:dim(occi)[3]]], nes.five)
+kf.occi=occi.date %>% select(month, day, year, F1, DOY, diff)
+# kf.occi=occi.date
 w.occi.nes=extract_calc(occi[[1:1028]], nes.five)
 kf.occi=occi.date %>% select(month, day, year, F1, DOY, diff)
 kf.occi$nes=w.occi.nes[1,]
@@ -114,6 +194,32 @@ kf.occi$gome=w.occi.nes[3,]
 kf.occi$gomw=w.occi.nes[4,]
 kf.occi$mabn=w.occi.nes[5,]
 kf.occi$mabs=w.occi.nes[6,]
+# kf.occi$year=year(kf.occi$test)
+# kf.occi$month=month(kf.occi$test)
+# kf.occi$day=day(kf.occi$test)
+# kf.occi$DOY=yday(kf.occi$test)
+
+save(kf.occi, file="/home/ryan/Git/JPSS/occi_v5__8d_5area_extracted_chl.RData")
+save(kf.occi.geo, file="/home/ryan/Git/JPSS/occi_v5_8d_5area_geomean_extracted_chl.RData")
+
+## plot OCCI for NES, annual, first 6, last 6 months
+tt=dplyr::select(kf.occi, month, year, gomw) %>% group_by(year) %>% summarise(mean=gm_mean(gomw))
+plot(tt, type='b', main=paste("v4 GOMw OCCI annual Chl"))
+tt.sp=dplyr::select(kf.occi, month, year, gomw) %>% filter(month<=6) %>% group_by(year) %>% summarise(mean=mean(gomw))
+plot(tt.sp, type='b',main=paste("v4 GOMw OCCI Jan-Jun Chl"))
+tt.fl=dplyr::select(kf.occi, month, year, gomw) %>% filter(month>6) %>% group_by(year) %>% summarise(mean=mean(gomw))
+plot(tt.fl, type='b', main=paste("v4 GOMw OCCI Jul-Dec Chl"))
+
+## plot v5 OCCI for NES, annual, first 6, last 6 months
+tt=dplyr::select(new, month, year, gomw) %>% group_by(year) %>% summarise(mean=mean(gomw))
+plot(tt, type='b', main=paste("v5 GOMw OCCI annual Chl"))
+tt.sp=dplyr::select(new, month, year, gomw) %>% filter(month<=6) %>% group_by(year) %>% summarise(mean=mean(gomw))
+plot(tt.sp, type='b',main=paste("v5 GOMw OCCI Jan-Jun Chl"))
+tt.fl=dplyr::select(new, month, year, gomw) %>% filter(month>6) %>% group_by(year) %>% summarise(mean=mean(gomw))
+plot(tt.fl, type='b', main=paste("v5 GOMw OCCI Jul-Dec Chl"))
+
+## plot Hermes GSM for NES, annual, first 6, last 6 months
+tt=dplyr::select(kf.gsm, M, Y, nes) %>% group_by(Y) %>% summarise(mean=gmean(nes))
 save(kf.occi, file="occi_8d_extracted_chl.RData")
 
 ## plot OCCI for NES, annual, first 6, last 6 months
@@ -140,9 +246,25 @@ plot(tt.sp, type='b',main=paste("GSM log NES Jan-Jun Chl"))
 tt.fl=dplyr::select(kf.lg.gsm, M, Y, nes) %>% filter(M>6) %>% group_by(Y) %>% summarise(mean=mean(nes))
 plot(tt.fl, type='b', main=paste("GSM log NES Jul-Dec Chl"))
 
+### plot GBK mean extracted values, averaged with geomean by month
+tt=dplyr::select(kf.occi.v5, month, year, gbk) %>% group_by(month, year) %>% summarise(mean=gm_mean(gbk))
+tt$date=as.Date(paste0("15/", paste(tt$month, tt$year, sep='/')),format = "%d/%m/%Y")
+tt=tt[order(tt$date),]
+plot(tt$mean ~ tt$date, type='l', col='red', ylab='GBK 8-d mean Chl', las=1)
+## plot OCCI for NES, annual, first 6, last 6 months
+tt=dplyr::select(kf.occi.v4, month, year, gbk) %>% group_by(month, year) %>% summarise(mean=gm_mean(gbk))
+tt$date=as.Date(paste0("15/", paste(tt$month, tt$year, sep='/')),format = "%d/%m/%Y")
+tt=tt[order(tt$date),]
+lines(tt$date, tt$mean, col='blue')
+legend('topleft', legend=c("v 5.0", "v 4.2"),
+       col=c("red", "blue"), lty=c(1:2), box.lty=0)
+
 
 ### Open SAHFOS CPR data
-cprgome=readxl::read_excel('/home/ryan/Desktop/RyanMorse_CPRExtract/CPR_Extract_Data_gome.xlsx') loc='GOMe'
+cprgome=readxl::read_excel('/home/ryan/Desktop/RyanMorse_CPRExtract/CPR_Extract_Data_nes.xlsx'); loc='NES'
+cprgometx=readxl::read_excel('/home/ryan/Desktop/RyanMorse_CPRExtract/CPR_Extract_TaxaList_nes.xlsx')
+
+cprgome=readxl::read_excel('/home/ryan/Desktop/RyanMorse_CPRExtract/CPR_Extract_Data_gome.xlsx'); loc='GOMe'
 cprgometx=readxl::read_excel('/home/ryan/Desktop/RyanMorse_CPRExtract/CPR_Extract_TaxaList_gome.xlsx')
 library(maps)
 library(mapdata)

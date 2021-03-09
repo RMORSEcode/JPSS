@@ -119,11 +119,13 @@ plotChlRaster=function(data, i, maxV, limit=F, dateval){
 # ## load shapefiles
 # setwd("G:/1 RM/KINGSTON/transfer/shapefiles/epu_shapes")
 setwd("C:/Users/ryan.morse/Desktop/Iomega Drive Backup 20171012/1 RM/KINGSTON/transfer/shapefiles/epu_shapes")
+d2='/home/ryan/Desktop/shapefiles/epu_shapes'
 wd=getwd()
-gbk=rgdal::readOGR("EPU_GBKPoly.shp")
-gom=rgdal::readOGR("EPU_GOMPoly.shp")
-mab=rgdal::readOGR("EPU_MABPoly.shp")
-scs=rgdal::readOGR("EPU_SCSPoly.shp")
+gbk=rgdal::readOGR(paste(d2, '/', "EPU_GBKPoly.shp", sep=''))
+gom=rgdal::readOGR(paste(d2, '/', "EPU_GOMPoly.shp", sep=''))
+mab=rgdal::readOGR(paste(d2, '/', "EPU_MABPoly.shp", sep=''))
+scs=rgdal::readOGR(paste(d2, '/', "EPU_SCSPoly.shp", sep=''))
+
 #combine shapefiles GOM and GBK
 gom.gbk.shp=gUnion(gom, gbk, byid=F, id=NULL)
 gom.gbk.shp=gUnion(gom, gbk, byid=F, id=NULL)
@@ -166,7 +168,6 @@ setwd('H:/1 RM/3 gridded data/OCCI')
 # nc1=nc_open('CCI_ALL-v4.0-8DAY.nc') # just chl
 # nc1=nc_open('C:/Users/ryan.morse/Downloads/CCI_ALL-v4.0-8DAY.nc') # new file with error estimates
 nc1=nc_open('C:/Users/ryan.morse/Documents/GitHub/JPSS/CCI_ALL-v4.2-8DAY.nc') #udpated with data fix 2019
-
 
 lon.occi=ncvar_get(nc1, 'lon')
 lat.occi=ncvar_get(nc1, 'lat')
@@ -370,6 +371,7 @@ i=20
 plot(chl.av[[i]], main=test1[i])
 
 # testing...
+plotChlRaster(chl.gsm, 5, 5, limit=T, av.dates)
 plotChlRaster(chl.av, 5, 5, limit=T, av.dates)
 plotChlRaster(chl.av, 5, 20, limit=F, av.dates)
 
@@ -551,11 +553,13 @@ points(vrs)
 
 ### get calibration Chl from WOD
 d2='C:/Users/ryan.morse/Documents/GitHub/JPSS/calibration/WOD'
+d2='~/Git/JPSS/calibration/WOD'
 ncfiles=list.files(path=d2, pattern='.nc')
 nc.str=strsplit(ncfiles, '.nc')
 
 i=1 #CTD hi res
-nc1=nc_open(ncfiles[i])
+nc1=nc_open(paste(d2, '/', ncfiles[i], sep=''))
+# nc1=nc_open(ncfiles[i])
 wod.chl=ncvar_get(nc1, 'Chlorophyll')
 wod.lat=ncvar_get(nc1, 'lat')
 wod.lon=ncvar_get(nc1, 'lon')
@@ -602,6 +606,7 @@ barplot(table(wod.chl.df2$year))
 # pointsin=over(wod.chl.df2, NES.shp) #find which boxes samples belong to
 map("worldHires", xlim=c(-77,-65),ylim=c(35,45), fill=T,border=0,col="gray70")
 map.axes(las=1)
+points(wod.chl.df2$lon, wod.chl.df2$lat)
 points(wod.chl.df2)
 
 ### build initial list of time matchups - indicates the dimension of the chl raster stack to extract data from
@@ -642,20 +647,25 @@ wod.chl.df2$gsm=NA
 wod.chl.df2$oc5=NA
 wod.chl.df2$av=NA
 wod.chl.df2$occi=NA
+wod.chl.df2$occiv5=NA
+
 coordinates(wod.chl.df2)=~lon+lat #transform to Spatialpointsdataframe
 ### method=bilinear #interpolates value from 4 nearest raster cells #simple is for cell only
 for(i in 1:length(wod.chl.df2$chl)){
-  # wod.chl.df2$gsm[i]=extract(chl.gsm.8d[[wod.chl.df2$smatch[i]]], wod.chl.df2[i,], method='bilinear', fun='mean', na.rm=T)
+  wod.chl.df2$gsm[i]=raster::extract(chl.gsm.8d[[wod.chl.df2$smatch[i]]], wod.chl.df2[i,], method='bilinear', fun='mean', na.rm=T)
   # wod.chl.df2$av[i]=extract(chl.av.8d[[wod.chl.df2$smatch[i]]], wod.chl.df2[i,], method='bilinear', fun='mean', na.rm=T)
   # wod.chl.df2$oc5[i]=extract(chl.oc5.8d[[wod.chl.df2$smatch[i]]], wod.chl.df2[i,], method='bilinear', fun='mean', na.rm=T)
-  wod.chl.df2$occi[i]=extract(occi[[wod.chl.df2$smatch[i]]], wod.chl.df2[i,], method='bilinear', fun='mean', na.rm=T)
-    if (i%%100==0){
-    print(paste(i, ' of ', length(wod.chl.df2$chl), sep=''))
+  wod.chl.df2$occi[i]=raster::extract(occi[[wod.chl.df2$smatch[i]]], wod.chl.df2[i,], method='bilinear', fun='mean', na.rm=T)
+  wod.chl.df2$occiv5[i]=raster::extract(occi.v5[[wod.chl.df2$smatch[i]]], wod.chl.df2[i,], method='bilinear', fun='mean', na.rm=T)
+  if (i%%100==0){
   }
 }
+
+  
 ## add time to dataframe for satellite matchup
 wod.chl.df2$jtime=wod.chl.df2$jday-floor(wod.chl.df2$jday)
 wod.chl.df2$time=format(times(wod.chl.df2$jtime))
+write.csv(wod.chl.df2, file='WOD_calibration_to_surface_chlorophyll_8day.csv')
 write.csv(wod.chl.df2, file='WOD_surf.csv')
 
 
@@ -704,6 +714,8 @@ taylor.diagram(wod.chl.df2$chl, wod.chl.df2$oc5, col='red')
 taylor.diagram(wod.chl.df2$chl, wod.chl.df2$gsm, add=T, col='blue')
 taylor.diagram(wod.chl.df2$chl, wod.chl.df2$av, add=T, col='green')
 taylor.diagram(wod.chl.df2$chl, wod.chl.df2$occi, add=T, col='black')
+taylor.diagram(wod.chl.df2$chl, wod.chl.df2$occiv5, add=T, col='red')
+
 
 #subset to low or high chl
 test=wod.chl.df2[which(wod.chl.df2$chl<1),]
@@ -711,6 +723,295 @@ taylor.diagram(test$chl, test$oc5, col='red')
 taylor.diagram(test$chl, test$gsm, add=T, col='blue')
 taylor.diagram(test$chl, test$av, add=T, col='green')
 taylor.diagram(test$chl, test$occi, add=T, col='black')
+taylor.diagram(test$chl, test$occiv5, add=T, col='red')
+
+
+RMSE = function(m, o){
+  sqrt(mean((m - o)^2))
+}
+# Function that returns Mean Absolute Error
+mae <- function(error)
+{
+  mean(abs(error))
+}
+# Function that returns Root Mean Squared Error
+rmse <- function(error)
+{
+  sqrt(mean(error^2))
+}
+# Calculate error
+error <- actual - predicted
+
+
+test=WOD[complete.cases(WOD$occciv5),]
+RMSE(o=test$chl, m=test$occciv5)
+dim(test)
+test=WOD[complete.cases(WOD$occciv4),]
+RMSE(o=test$chl, m=test$occciv4)
+dim(test)
+test=WOD[complete.cases(WOD$gsm),]
+RMSE(o=test$chl, m=test$gsm)
+dim(test)
+
+test=WOD[complete.cases(WOD),] # all vars, equal lenght (much data lost, all remaining in NES)
+RMSE(o=test$chl, m=test$occciv5)
+RMSE(o=test$chl, m=test$occciv4)
+RMSE(o=test$chl, m=test$gsm)
+
+
+### look at residuals
+test$rv4=test$chl-test$occi
+test$rv5=test$chl-test$occiv5
+test$rgsm=test$chl-test$gsm
+
+mae(test$rgsm)
+mae(test$rv4)
+mae(test$rv5)
+rmse(test$rgsm)
+rmse(test$rv4)
+rmse(test$rv5)
+
+
+plot(test$rv4,type='p', ylim=c(-10, 10), main='v4')
+plot(test$rv5,type='p', ylim=c(-10, 10), main='v5')
+plot(test$rgsm,type='p', ylim=c(-10, 10), main='gsm')
+plot(test$rv4~test$occciv4, type='p', main='v4 resid', ylim=c(-5, 15), xlim=c(0, 8))
+plot(test$rv5~test$occciv5, type='p', main='v5 resid', ylim=c(-5, 15), xlim=c(0, 8))
+plot(test$rgsm~test$gsm, type='p', main='gsm resid', ylim=c(-5, 15), xlim=c(0, 8))
+## log scale
+plot(test$occciv4 ~ test$chl,type='p', main='v4', log='xy'); abline(a=0, b=1)
+plot(test$occciv5 ~ test$chl,type='p', main='v5', log='xy'); abline(a=0, b=1)
+plot(test$gsm ~ test$chl,type='p', main='gsm', log='xy'); abline(a=0, b=1)
+
+plot(log(test$occciv4+1) ~ log(test$chl+1) ,type='p', ylim=c(0, 2), xlim=c(0,2), main='v4'); abline(a=0, b=1)
+plot(log(test$occciv5+1) ~log(test$chl+1),type='p', ylim=c(0, 2), xlim=c(0,2), main='v5'); abline(a=0, b=1)
+plot(log(test$gsm+1) ~log(test$chl+1) ,type='p', ylim=c(0, 2), xlim=c(0,2), main='gsm'); abline(a=0, b=1)
+
+
+### read in in situ chlorophyll-satellite matchups from NASA SEABASS
+sbmodisa=read.csv('/home/ryan/Downloads/1612220222584465_chlor_a.csv', header = F, stringsAsFactors = F, skip = 29)
+t=readLines('/home/ryan/Downloads/1612220222584465_chlor_a.csv', n=28)
+t2=strsplit(t[27], split=',')
+colnames(sbmodisa)=unlist(t2)
+
+sbseawifs=read.csv('/home/ryan/Downloads/161222030910903_chlor_a.csv', header = F, stringsAsFactors = F, skip = 29)
+t=readLines('/home/ryan/Downloads/161222030910903_chlor_a.csv', n=28)
+t2=strsplit(t[27], split=',')
+colnames(sbseawifs)=unlist(t2)
+
+sbmeris=read.csv('/home/ryan/Downloads/1612220388699824_chlor_a.csv', header = F, stringsAsFactors = F, skip = 29)
+t=readLines('/home/ryan/Downloads/1612220388699824_chlor_a.csv', n=28)
+t2=strsplit(t[27], split=',')
+colnames(sbmeris)=unlist(t2)
+
+sbviirssnpp=read.csv('/home/ryan/Downloads/1612220443903143_chlor_a.csv', header = F, stringsAsFactors = F, skip = 29)
+t=readLines('/home/ryan/Downloads/1612220443903143_chlor_a.csv', n=28)
+t2=strsplit(t[27], split=',')
+colnames(sbviirssnpp)=unlist(t2)
+
+sbmodist=read.csv('/home/ryan/Downloads/1612220548231565_chlor_a.csv', header = F, stringsAsFactors = F, skip = 29)
+t=readLines('/home/ryan/Downloads/1612220548231565_chlor_a.csv', n=28)
+t2=strsplit(t[27], split=',')
+colnames(sbmodist)=unlist(t2)
+
+tr1=sbmodisa %>% select( latitude, longitude, date_time, insitu_chlor_a, aqua_chlor_a)
+tr2=sbmodist %>% select( latitude, longitude, date_time, insitu_chlor_a, terra_chlor_a)
+tr3=sbmeris %>% select( latitude, longitude, date_time, insitu_chlor_a, meris_chlor_a)
+tr4=sbseawifs %>% select( latitude, longitude, date_time, insitu_chlor_a, seawifs_chlor_a)
+tr5=sbviirssnpp %>% select( latitude, longitude, date_time, insitu_chlor_a, viirs_chlor_a)
+# tr=tr1 %>% left_join(tr2, by=c('latitude', 'longitude', 'date_time'))
+
+tr=tr1 %>% full_join(tr2, by=c('latitude', 'longitude', 'date_time'), name=NULL)
+tr=tr%>% full_join(tr3, by=c('latitude', 'longitude', 'date_time'), name=NULL)
+tr=tr%>% full_join(tr4, by=c('latitude', 'longitude', 'date_time'), name=NULL)
+tr=tr%>% full_join(tr5, by=c('latitude', 'longitude', 'date_time'), name=NULL)
+### merge all in-situ chlorophylls together, drop merged repeats
+insitu_chl=tr %>% select(insitu_chlor_a, insitu_chlor_a.x, insitu_chlor_a.y, insitu_chlor_a.x.x, insitu_chlor_a.y.y) %>%
+  mutate(ischl=rowMeans(., na.rm=T))
+tr$insitu_chl_final=insitu_chl$ischl
+tr=tr %>% select(-insitu_chlor_a, -insitu_chlor_a.x, -insitu_chlor_a.y, -insitu_chlor_a.x.x, -insitu_chlor_a.y.y)
+
+### read in  satellite and ship matchups from Kim (daily)
+satshpv4=read.csv('/home/ryan/Downloads/SATSHIP_L2-JPSS_NEC_SEABASS-CHLOR_A-OCI-OCCCI.CSV', sep = ',', 
+                  header = F, stringsAsFactors = F, skip=1)
+t=readLines('/home/ryan/Downloads/SATSHIP_L2-JPSS_NEC_SEABASS-CHLOR_A-OCI-OCCCI.CSV', n=1)
+t2=strsplit(t, split=',')
+colnames(satshpv4)=unlist(t2)
+satshpv4$SHIP_DATE=format(satshpv4$SHIP_DATE, scientific = F)
+satshpv4$SHIP_DATE=ymd_hms(satshpv4$SHIP_DATE)
+satshpv5=read.csv('/home/ryan/Downloads/SATSHIP_L2-JPSS_NEC_SEABASS-CHLOR_A-CCI-OCCCI_V5.0.CSV', 
+                  sep = ',', header=F, stringsAsFactors = F, skip=1)
+t=readLines('/home/ryan/Downloads/SATSHIP_L2-JPSS_NEC_SEABASS-CHLOR_A-CCI-OCCCI_V5.0.CSV', n=1)
+t2=strsplit(t, split=',')
+colnames(satshpv5)=unlist(t2)
+satshpv5$SHIP_DATE=format(satshpv5$SHIP_DATE, scientific = F)
+satshpv5$SHIP_DATE=ymd_hms(satshpv5$SHIP_DATE)
+
+
+## separate out 3x3 pixels around center chl, take geometric mean (or median)
+### For OCCCI v5 data extractions
+satv5chl=satshpv5 %>% tidyr::separate(SAT_CHLOR_A_CCI, sep=";", into=paste("v", 1:9, sep=''), convert=T) %>% select(v1:v9)
+# satv5chl$gm=apply(satv5chl[,1:9], 1, FUN=gm_mean, na.rm=T)
+satv5chl$med=apply(satv5chl[,1:9], 1, median, na.rm=T)
+satshpv5$SAT_MED_CHLOR=satv5chl$med
+tv5=satshpv5[complete.cases(satshpv5$SAT_MED_CHLOR),]
+### now do for v4 OCCCI data
+satv4chl=satshpv4 %>% tidyr::separate(SAT_CHLOR_A_OCI, sep=";", into=paste("v", 1:9, sep=''), convert=T) %>% select(v1:v9)
+satv4chl$med=apply(satv4chl[,1:9], 1, median, na.rm=T)
+satshpv4$SAT_MED_CHLOR=satv4chl$med
+tv4=satshpv4[complete.cases(satshpv4$SAT_MED_CHLOR),]
+
+
+### read sat-ship matchup file from Kyle turner
+ktsatmat=readxl::read_excel('/home/ryan/Downloads/nes_insitu_satellite_chl_upper10m.xlsx', na="NaN", 
+col_types=c('numeric', 'numeric', 'guess', 'numeric', 'text', 'numeric','numeric','numeric','numeric','numeric','numeric','numeric','numeric'))
+# ktsatmat=ktsatmat %>% mutate_at(vars(`viirs_snpp_chlor_a [mg m-3]`, `snpp_time_dif [hours]`, `viirs_noaa20_chlor_a [mg m-3]`, `noaa20_time_dif [hours]`,
+                            # `modis_aqua_chlor_a [mg m-3]`, `modis_time_dif [hours]`, `occci_chlor_a [mg m-3]`), na_if, "NaN") 
+# ktsatmat[ktsatmat=="NaN"]=NA #as.numeric(ktsatmat)
+t=ktsatmat[complete.cases(ktsatmat$`occci_chlor_a [mg m-3]`),]
+plot(log(t$`in_situ_chl [mg m-3]`)~log(t$`occci_chlor_a [mg m-3]`), type='p')
+abline(a=0, b=1)
+RMSE(o=t$`in_situ_chl [mg m-3]` , m=t$`occci_chlor_a [mg m-3]`)
+
+t2=satshpv5 %>% filter(CRUISE!='SeaBASS')
+t3=satshpv5 %>% filter(CRUISE=='SeaBASS')
+table(year(t3$SHIP_DATE))
+### Turner merge v5 sat-matchups from Kim
+ktest5=left_join(tv5,ktsatmat, by=c("date"="datetime", "SHIP_LAT"="lat", "SHIP_LON"="lon"))
+ktest50=ktest5[complete.cases(ktest5$`in_situ_chl [mg m-3]`),]
+plot(log(ktest50$`in_situ_chl [mg m-3]`) ~log(ktest50$SAT_MED_CHLOR), type='p', main="OCCCI v5.0 median vs in situ chl", xlim=c(-3,3), ylim=c(-4,4))
+abline(a=0, b=1)
+a=RMSE(o=log(ktest50$`in_situ_chl [mg m-3]`) , m=log(ktest50$SAT_MED_CHLOR))
+text(-2,3, paste('RMSE: ', round(a, digits=2),sep=''))
+text(-2,2, paste('N: ', dim(ktest50)[1],sep=''))
+### Turner merge v4 sat-matchups from Kim
+ktest4=left_join(tv4,ktsatmat, by=c("date"="datetime", "SHIP_LAT"="lat", "SHIP_LON"="lon"))
+ktest40=ktest4[complete.cases(ktest4$`in_situ_chl [mg m-3]`),]
+plot(log(ktest40$`in_situ_chl [mg m-3]`) ~log(ktest40$SAT_MED_CHLOR), type='p', main="OCCCI v4.2 median vs in situ chl", xlim=c(-3,3), ylim=c(-4,4))
+abline(a=0, b=1)
+a=RMSE(o=log(ktest40$`in_situ_chl [mg m-3]`) , m=log(ktest40$SAT_MED_CHLOR))
+text(-2,3, paste('RMSE: ', round(a, digits=2),sep=''))
+text(-2,2, paste('N: ', dim(ktest40)[1],sep=''))
+
+### now add in tr to see if any additional stations are added... YES
+test=full_join(ktest5,tr, by=c("date", "SHIP_LAT"="latitude", "SHIP_LON"="longitude"))
+test$insituchl=apply(test[,c(29,43)], 1, mean, na.rm=T)
+# sum(is.na(test$`in_situ_chl [mg m-3]`)) #32637
+# sum(is.na(test$insitu_chl_final)) #32854
+# sum(is.na(test$insituchl)) #32450
+test5=test[complete.cases(test$insituchl),] # 916 using median of 3x3 pixels (na.rm=T)
+plot(log(test5$insituchl) ~log(test5$SAT_MED_CHLOR), type='p', main="OCCCI v5.0 median vs in situ chl", xlim=c(-3,3), ylim=c(-4,4))
+abline(a=0, b=1)
+a=RMSE(o=log(test5$insituchl) , m=log(test5$SAT_MED_CHLOR))
+text(-2,3, paste('RMSE: ', round(a, digits=2),sep=''))
+text(-2,2, paste('N: ', dim(test5)[1],sep=''))
+
+test=left_join(ktest4,tr, by=c("date", "SHIP_LAT"="latitude", "SHIP_LON"="longitude"))
+test$insituchl=apply(test[,c(28,42)], 1, mean, na.rm=T)
+sum(is.na(test$`in_situ_chl [mg m-3]`)) #32637
+sum(is.na(test$insitu_chl_final)) #32854
+sum(is.na(test$insituchl)) #32450
+test5=test[complete.cases(test$insituchl),] # 916 using median of 3x3 pixels (na.rm=T)
+plot(log(test5$insituchl) ~log(test5$SAT_MED_CHLOR), type='p', main="OCCCI v5.0 median vs in situ chl", xlim=c(-3,3), ylim=c(-4,4))
+abline(a=0, b=1)
+a=RMSE(o=log(test5$insituchl) , m=log(test5$SAT_MED_CHLOR))
+text(-2,3, paste('RMSE: ', round(a, digits=2),sep=''))
+text(-2,2, paste('N: ', dim(test5)[1],sep=''))
+
+
+
+### compare time stamps -> need to format for comparison
+tr$date_time[1] %in% tv5$SHIP_DATE # not formatted properly
+a=tr$date_time[1] #"2009-10-19 15:25:00"
+b=satshpv5$SHIP_DATE[40149] #"2009-10-19 15:25:00 UTC"
+as.Date(lubridate::intersect(a,b), origin = "1970-01-01") #still not formatted properly
+as.Date(lubridate::intersect(as.Date(a),as.Date(b)), origin = "1970-01-01") # works
+as.Date(tr$date_time[1]) %in% as.Date(tv5$SHIP_DATE) # works
+test=as.Date(tr$date_time) %in% as.Date(tv5$SHIP_DATE); sum(test) # works, number of in situ samples in OCCCI v5 database from Kim
+test4=as.Date(tr$date_time) %in% as.Date(tv4$SHIP_DATE); sum(test)
+
+### need POSIXct for times to be recognized
+as.POSIXct(tr$date_time[1]) %in% as.POSIXct(tv5$SHIP_DATE) # does not work
+as.POSIXct(tr$date_time[1], tz="UTC") %in% as.POSIXct(tv5$SHIP_DATE, tz="UTC") # works
+
+### merge on dates ---> DOES NOT WORK
+tr$date=as.Date(tr$date_time, origin = "1970-01-01")
+tv5$date=as.Date(tv5$SHIP_DATE, origin = "1970-01-01")
+test=left_join(tr, tv5, by="date") # WAY TOO LONG
+### USING POSIXct with times ---> WORKS
+tr$date=as.POSIXct(tr$date_time, tz="UTC") #origin = "1970-01-01")
+tv5$date=as.POSIXct(tv5$SHIP_DATE, tz="UTC") #origin = "1970-01-01")
+tv4$date=as.POSIXct(tv4$SHIP_DATE, tz="UTC") #origin = "1970-01-01")
+### NOW do merge:
+### v5 data using median of 3x3 pixels 
+test=left_join(tr, tv5, by=c("date", "latitude"="SHIP_LAT", "longitude"="SHIP_LON")) # 2605 long
+test5=test[complete.cases(test$SAT_MED_CHLOR),] # 916 using median of 3x3 pixels (na.rm=T)
+plot(log(test5$insitu_chl_final) ~log(test5$SAT_MED_CHLOR), type='p', main="OCCCI v5.0 median vs in situ chl", xlim=c(-3,3), ylim=c(-4,4))
+abline(a=0, b=1)
+a=RMSE(o=log(test5$insitu_chl_final) , m=log(test5$SAT_MED_CHLOR))
+text(-2,3, paste('RMSE: ', round(a, digits=2),sep=''))
+text(-2,2, paste('N: ', dim(test5)[1],sep=''))
+### v4 data
+test=left_join(tr, tv4, by=c("date", "latitude"="SHIP_LAT", "longitude"="SHIP_LON")) # 2609 long
+test4=test[complete.cases(test$SAT_MED_CHLOR),] # 917 using median of 3x3 pixels (na.rm=T)
+plot(log(test4$insitu_chl_final) ~log(test4$SAT_MED_CHLOR), type='p', main="OCCCI v4.2 median vs in situ chl",xlim=c(-3,3), ylim=c(-4,4))
+abline(a=0, b=1)
+a=RMSE(o=log(test4$insitu_chl_final) , m=log(test4$SAT_MED_CHLOR))
+text(-2,3, paste('RMSE: ', round(a, digits=2),sep=''))
+text(-2,2, paste('N: ', dim(test4)[1],sep=''))
+### plot non-log transformed
+plot(test4$SAT_MED_CHLOR ~ test4$insitu_chl_final, type='p', main="OCCCI v4.2 median vs in situ chl", ylim=c(0,10), xlim=c(0,20)); abline(a=0, b=1)
+a=RMSE(o=test4$insitu_chl_final , m=test4$SAT_MED_CHLOR)
+text(18,3, paste('RMSE: ', round(a, digits=2),sep=''))
+text(18,2, paste('N: ', dim(test4)[1],sep=''))
+plot(test5$SAT_MED_CHLOR ~ test5$insitu_chl_final, type='p', main="OCCCI v5.0 median vs in situ chl", ylim=c(0,10), xlim=c(0,20)); abline(a=0, b=1)
+a=RMSE(o=test5$insitu_chl_final , m=test5$SAT_MED_CHLOR)
+text(18,3, paste('RMSE: ', round(a, digits=2),sep=''))
+text(18,2, paste('N: ', dim(test5)[1],sep=''))
+
+### Plot satellite center values log and non log-transformed
+## clean Inf values...
+test44=test4
+test44$SAT_CENTER_CHLOR_A_OCI[which(is.infinite(test44$SAT_CENTER_CHLOR_A_OCI))]=NA
+test44=test44[complete.cases(test44$SAT_CENTER_CHLOR_A_OCI),]
+test55=test5
+test55$SAT_CENTER_CHLOR_A_CCI[which(is.infinite(test55$SAT_CENTER_CHLOR_A_CCI))]=NA
+test55=test55[complete.cases(test55$SAT_CENTER_CHLOR_A_CCI),]
+plot(test44$SAT_CENTER_CHLOR_A_OCI ~ test44$insitu_chl_final, type='p', main="OCCCI v4.2 center vs in situ chl", ylim=c(0,10), xlim=c(0,20)); abline(a=0, b=1)
+a=RMSE(o=test44$insitu_chl_final , m=test44$SAT_CENTER_CHLOR_A_OCI)
+text(18,3, paste('RMSE: ', round(a, digits=2),sep=''))
+text(18,2, paste('N: ', dim(test44)[1],sep=''))
+plot(test55$SAT_CENTER_CHLOR_A_CCI ~ test55$insitu_chl_final, type='p', main="OCCCI v5.0 center vs in situ chl", ylim=c(0,10), xlim=c(0,20)); abline(a=0, b=1)
+a=RMSE(o=test55$insitu_chl_final , m=test55$SAT_CENTER_CHLOR_A_CCI)
+text(18,3, paste('RMSE: ', round(a, digits=2),sep=''))
+text(18,2, paste('N: ', dim(test55)[1],sep=''))
+
+## log transformed
+plot(log(test44$insitu_chl_final) ~log(test44$SAT_CENTER_CHLOR_A_OCI), type='p', main="OCCCI v4.2 center vs in situ chl",xlim=c(-3,3), ylim=c(-4,4))
+abline(a=0, b=1)
+a=RMSE(o=log(test44$insitu_chl_final) , m=log(test44$SAT_CENTER_CHLOR_A_OCI))
+text(-2,3, paste('RMSE: ', round(a, digits=2),sep=''))
+text(-2,2, paste('N: ', dim(test44)[1],sep=''))
+plot(log(test55$insitu_chl_final) ~log(test55$SAT_CENTER_CHLOR_A_CCI), type='p', main="OCCCI v5 center vs in situ chl",xlim=c(-3,3), ylim=c(-4,4))
+abline(a=0, b=1)
+a=RMSE(o=log(test55$insitu_chl_final) , m=log(test55$SAT_CENTER_CHLOR_A_CCI))
+text(-2,3, paste('RMSE: ', round(a, digits=2),sep=''))
+text(-2,2, paste('N: ', dim(test55)[1],sep=''))
+
+
+
+## log transformed
+plot(log(t44$insitu_chl_final) ~log(t44$SAT_CENTER_CHLOR_A_OCI), type='p', main="OCCCI v4.2 center vs in situ chl",xlim=c(-3,3), ylim=c(-4,4))
+abline(a=0, b=1)
+a=RMSE(o=log(t44$insitu_chl_final) , m=log(t44$SAT_CENTER_CHLOR_A_OCI))
+text(-2,3, paste('RMSE: ', round(a, digits=2),sep=''))
+text(-2,2, paste('N: ', dim(t44)[1],sep=''))
+
+plot(log(t55$insitu_chl_final) ~log(t55$SAT_CENTER_CHLOR_A_CCI), type='p', main="OCCCI v5 center vs in situ chl",xlim=c(-3,3), ylim=c(-4,4))
+abline(a=0, b=1)
+a=RMSE(o=log(t55$insitu_chl_final) , m=log(t55$SAT_CENTER_CHLOR_A_CCI))
+text(-2,3, paste('RMSE: ', round(a, digits=2),sep=''))
+text(-2,2, paste('N: ', dim(t55)[1],sep=''))
 
 
 
