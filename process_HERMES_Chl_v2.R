@@ -554,6 +554,7 @@ points(vrs)
 ### get calibration Chl from WOD
 d2='C:/Users/ryan.morse/Documents/GitHub/JPSS/calibration/WOD'
 d2='~/Git/JPSS/calibration/WOD'
+d2='/home/ryan/Git/JPSS_2/JPSS/calibration/WOD'
 ncfiles=list.files(path=d2, pattern='.nc')
 nc.str=strsplit(ncfiles, '.nc')
 
@@ -596,6 +597,8 @@ colnames(wod.chl.df2)=c('chl', 'lon', 'lat', 'z', 'jday', 'month', 'day', 'year'
 wod.chl.df2$F1=paste(wod.chl.df2$year, wod.chl.df2$month, wod.chl.df2$day, sep='-')
 wod.chl.df2$DOY=as.numeric(strftime(wod.chl.df2$F1, '%j'))
 wod.chl.df2=wod.chl.df2[complete.cases(wod.chl.df2),]
+
+save(wod.chl.df2, file='/home/ryan/Git/JPSS_2/JPSS/WOD_CTD_surface_chl.RData')
 
 barplot(table(round(wod.chl.df2$chl, digits=1)))
 barplot(table(wod.chl.df2$month))

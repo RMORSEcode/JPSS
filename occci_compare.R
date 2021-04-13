@@ -8,8 +8,12 @@ library(rgeos)
 library(maps)
 library(mapdata)
 
+RMSE = function(m, o){
+  sqrt(mean((m - o)^2))
+}
+
 ### read in extracted chl from SeaBASS (fluormetric and hplc)
-ischl=read.csv('/home/ryan/Downloads/SeaBASS_extracted_chl.txt', stringsAsFactors = F)
+ischl=read.csv('/home/ryan/Downloads/SeaBASS_extracted_chl (1).txt', stringsAsFactors = F)
 ischl$date=as.POSIXct(ischl$datetime, tz="UTC") 
 
 
@@ -34,12 +38,12 @@ ischl$epu[which(mgcv::in.out(gom.mat, m4))]='GOM'
 ischl$epu[which(mgcv::in.out(scs.mat, m4))]='SS'
 ischl$epu[which(mgcv::in.out(mab.mat, m4))]='MAB'
 # test=ischl[is.na(ischl$epu),] #unassigned
-GB=ischl %>% filter(epu=='GB')
+GB=ischl %>% filter(epu=='GB', year(date)>1997)
 table(year(GB$date))
 map("worldHires", xlim=c(-77,-65),ylim=c(35,45), fill=T,border=0,col="gray70"); map.axes(las=1)
-test=GB%>% filter(year(date)>1997)
-points(test$longitude, test$latitude)
-table(month(test$date))
+points(GB$longitude, GB$latitude)
+test=GB %>% filter(month(GB$date)==6)
+table(year(test$date))
 
 # nc1=nc_open('/home/ryan/Downloads/GLORYS_Bottom_Temp_2018-10-11.nc')
 nc1=nc_open('/home/ryan/Downloads/global-reanalysis-phy-001-030-monthly_1608734707901.nc')
@@ -80,21 +84,21 @@ t=readLines('/home/ryan/Downloads/1612220548231565_chlor_a.csv', n=28)
 t2=strsplit(t[27], split=',')
 colnames(sbmodist)=unlist(t2)
 
-tr1=sbmodisa %>% select( latitude, longitude, date_time, insitu_chlor_a, aqua_chlor_a)
-tr2=sbmodist %>% select( latitude, longitude, date_time, insitu_chlor_a, terra_chlor_a)
-tr3=sbmeris %>% select( latitude, longitude, date_time, insitu_chlor_a, meris_chlor_a)
-tr4=sbseawifs %>% select( latitude, longitude, date_time, insitu_chlor_a, seawifs_chlor_a)
-tr5=sbviirssnpp %>% select( latitude, longitude, date_time, insitu_chlor_a, viirs_chlor_a)
+tr1=sbmodisa %>% dplyr::select( latitude, longitude, date_time, insitu_chlor_a, aqua_chlor_a)
+tr2=sbmodist %>% dplyr::select( latitude, longitude, date_time, insitu_chlor_a, terra_chlor_a)
+tr3=sbmeris %>% dplyr::select( latitude, longitude, date_time, insitu_chlor_a, meris_chlor_a)
+tr4=sbseawifs %>% dplyr::select( latitude, longitude, date_time, insitu_chlor_a, seawifs_chlor_a)
+tr5=sbviirssnpp %>% dplyr::select( latitude, longitude, date_time, insitu_chlor_a, viirs_chlor_a)
 
 tr=tr1 %>% full_join(tr2, by=c('latitude', 'longitude', 'date_time'), name=NULL)
 tr=tr%>% full_join(tr3, by=c('latitude', 'longitude', 'date_time'), name=NULL)
 tr=tr%>% full_join(tr4, by=c('latitude', 'longitude', 'date_time'), name=NULL)
 tr=tr%>% full_join(tr5, by=c('latitude', 'longitude', 'date_time'), name=NULL)
 ### merge all in-situ chlorophylls together, drop merged repeats
-insitu_chl=tr %>% select(insitu_chlor_a, insitu_chlor_a.x, insitu_chlor_a.y, insitu_chlor_a.x.x, insitu_chlor_a.y.y) %>%
+insitu_chl=tr %>% dplyr::select(insitu_chlor_a, insitu_chlor_a.x, insitu_chlor_a.y, insitu_chlor_a.x.x, insitu_chlor_a.y.y) %>%
   mutate(ischl=rowMeans(., na.rm=T))
 tr$insitu_chl_final=insitu_chl$ischl
-tr=tr %>% select(-insitu_chlor_a, -insitu_chlor_a.x, -insitu_chlor_a.y, -insitu_chlor_a.x.x, -insitu_chlor_a.y.y)
+tr=tr %>% dplyr::select(-insitu_chlor_a, -insitu_chlor_a.x, -insitu_chlor_a.y, -insitu_chlor_a.x.x, -insitu_chlor_a.y.y)
 tr$date=as.POSIXct(tr$date_time, tz="UTC") #origin = "1970-01-01")
 
 ### read in  satellite and ship matchups from Kim (daily)
@@ -114,13 +118,13 @@ satshpv5$SHIP_DATE=format(satshpv5$SHIP_DATE, scientific = F)
 satshpv5$SHIP_DATE=ymd_hms(satshpv5$SHIP_DATE)
 ## separate out 3x3 pixels around center chl, take geometric mean (or median)
 ### For OCCCI v5 data extractions
-satv5chl=satshpv5 %>% tidyr::separate(SAT_CHLOR_A_CCI, sep=";", into=paste("v", 1:9, sep=''), convert=T) %>% select(v1:v9)
+satv5chl=satshpv5 %>% tidyr::separate(SAT_CHLOR_A_CCI, sep=";", into=paste("v", 1:9, sep=''), convert=T) %>% dplyr::select(v1:v9)
 satv5chl$med=apply(satv5chl[,1:9], 1, median, na.rm=T)
 satshpv5$SAT_MED_CHLOR=satv5chl$med
 tv5=satshpv5[complete.cases(satshpv5$SAT_MED_CHLOR),]
 tv5$date=as.POSIXct(tv5$SHIP_DATE, tz="UTC") #origin = "1970-01-01")
 ### now do for v4 OCCCI data
-satv4chl=satshpv4 %>% tidyr::separate(SAT_CHLOR_A_OCI, sep=";", into=paste("v", 1:9, sep=''), convert=T) %>% select(v1:v9)
+satv4chl=satshpv4 %>% tidyr::separate(SAT_CHLOR_A_OCI, sep=";", into=paste("v", 1:9, sep=''), convert=T) %>% dplyr::select(v1:v9)
 satv4chl$med=apply(satv4chl[,1:9], 1, median, na.rm=T)
 satshpv4$SAT_MED_CHLOR=satv4chl$med
 tv4=satshpv4[complete.cases(satshpv4$SAT_MED_CHLOR),]
@@ -158,6 +162,9 @@ plot(v4full$SAT_MED_CHLOR ~ v4full$insituchl, type='p', main="OCCCI v4.2 median 
 a=RMSE(o=v4full$insituchl , m=v4full$SAT_MED_CHLOR)
 text(18,3, paste('RMSE: ', round(a, digits=2),sep=''))
 text(18,2, paste('N: ', dim(v4full)[1],sep=''))
+
+save(tr, file='/home/ryan/Git/JPSS_2/JPSS/NASAcalibration.RData')
+save(ktsatmat, file='/home/ryan/Git/JPSS_2/JPSS/TurnerSatelliteMatches.Rdata')
 
 plot(log(v4full$SAT_MED_CHLOR) ~log(v4full$insituchl), type='p', main="OCCCI v4.2 median vs in situ chl", xlim=c(-4,4), ylim=c(-4,4)); abline(a=0, b=1)
 a=RMSE(o=log(v4full$insituchl) , m=log(v4full$SAT_MED_CHLOR))
