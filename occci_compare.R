@@ -7,6 +7,10 @@ library(marmap)
 library(rgeos)
 library(maps)
 library(mapdata)
+library(plotrix)
+
+xdt=today()
+xdt=gsub('-','',xdt)
 
 RMSE = function(m, o){
   sqrt(mean((m - o)^2))
@@ -130,10 +134,261 @@ satshpv4$SAT_MED_CHLOR=satv4chl$med
 tv4=satshpv4[complete.cases(satshpv4$SAT_MED_CHLOR),]
 tv4$date=as.POSIXct(tv4$SHIP_DATE, tz="UTC") #origin = "1970-01-01")
 
+#__________________________________________________________________________________________
+# 20210427 compare newest values of total chl, then just JPSS project Chl
+### newest extracted values Apr 2021 from Audreys database of fluorometric + CTD + HPLC
+### OCCCI v4.2 first ###
+satshpv4=read.csv('/home/ryan/Git/JPSS_2/JPSS/2021 Extracted CHL/SATSHIP_MATCHIP-JPSS_SEABASS_EXTRACTED_CHL-CHLOR_A-CCI-OCCCI-SHIP_CHL.csv', 
+                  sep = ',', header=F, stringsAsFactors = F, skip=1)
+t=readLines('/home/ryan/Git/JPSS_2/JPSS/2021 Extracted CHL/SATSHIP_MATCHIP-JPSS_SEABASS_EXTRACTED_CHL-CHLOR_A-CCI-OCCCI-SHIP_CHL.csv', n=1)
+t2=strsplit(t, split=',')
+colnames(satshpv4)=unlist(t2)
+satshpv4$SHIP_DATE=format(satshpv4$SHIPDATE, scientific = F)
+satshpv4$SHIP_DATE=ymd_hms(satshpv4$SHIP_DATE)
+satshpv4$SAT_DATE=format(satshpv4$SATDATE, scientific = F)
+satshpv4$SAT_DATE=ymd_hms(satshpv4$SAT_DATE)
+## replace Inf with NA for string of 9 values for satellite 3x3 pixels, take median value
+satv4chl=satshpv4 %>% tidyr::separate(SATDATA, sep=";", into=paste("v", 1:9, sep=''), convert=T) %>% dplyr::select(v1:v9)
+satv4chl[sapply(satv4chl, is.infinite)] <- NA
+satv4chl$med=apply(satv4chl[,1:9], 1, median, na.rm=T)
+### add back into original DF
+satshpv4$SATDATA_med=satv4chl$med
+### keep values with valid center pixel and at least 4 of 9 satellite cells from 3x3 area
+KH4=satshpv4 #%>% filter(!(is.na(SATDATA_0)), N>3)
+## replace Inf with NA for SATDATA_0 and SATDATA
+KH4$SATDATA_0[KH4$SATDATA_0==Inf]=NA # change to NA from Inf
+KH4$SATDATA_all=KH4$SATDATA_0 # copy center values to 'all' column
+## replace missing center values with median of 3x3 pixels
+KH4$SATDATA_all[is.na(KH4$SATDATA_all)]=KH4$SATDATA_med[is.na(KH4$SATDATA_all)]
+# test=KH4[1:100,]
+### drop bad satellite data no center or data in 3x3 window
+KH4f=KH4[complete.cases(KH4$SATDATA_all),]
+### deal with multiple depths and/or replicates from ship data
+# tunq=KH4f %>% group_by(SHIP_LAT, SHIP_LON, SHIP_DATE) %>% filter(n()==1) %>% mutate(shipnum=n())
+# tdup=KH4f %>% group_by(SHIP_LAT, SHIP_LON, SHIP_DATE) %>% filter(n()>1) %>% mutate(shipnum=n())
+# KH4mn=tdup %>% mutate_if(is.numeric, mean) %>% mutate_if(is.character, funs(paste(unique(.), collapse = "_"))) %>% slice(1)
+# KH4f2=bind_rows(tunq, KH4mn) %>% ungroup() #reassign name
+### select just needed cols, look for replicates, take mean
+KH4final=KH4f %>% 
+  dplyr::select(SHIP_LAT, SHIP_LON, SHIP_DATE, SAT_DATE, SAT_LAT_0, SAT_LON_0, N, SHIPDATA, SATDATA_0, SATDATA_all) %>% 
+  group_by(SHIP_LAT, SHIP_LON, SHIP_DATE) %>%
+  mutate_each(funs(mean), -(1:4)) %>%
+  distinct
+# test2=KH4final[1:100,]
+
+### OCCCI v5.0 ###
+satshpv5=read.csv('/home/ryan/Git/JPSS_2/JPSS/2021 Extracted CHL/SATSHIP_MATCHIP-JPSS_SEABASS_EXTRACTED_CHL-CHLOR_A-CCI-OCCCI_V5.0-SHIP_CHL.csv', 
+                  sep = ',', header=F, stringsAsFactors = F, skip=1)
+t=readLines('/home/ryan/Git/JPSS_2/JPSS/2021 Extracted CHL/SATSHIP_MATCHIP-JPSS_SEABASS_EXTRACTED_CHL-CHLOR_A-CCI-OCCCI_V5.0-SHIP_CHL.csv', n=1)
+t2=strsplit(t, split=',')
+colnames(satshpv5)=unlist(t2)
+satshpv5$SHIP_DATE=format(satshpv5$SHIPDATE, scientific = F)
+satshpv5$SHIP_DATE=ymd_hms(satshpv5$SHIP_DATE)
+satshpv5$SAT_DATE=format(satshpv5$SATDATE, scientific = F)
+satshpv5$SAT_DATE=ymd_hms(satshpv5$SAT_DATE)
+## replace Inf with NA for string of 9 values for satellite 3x3 pixels, take median value
+satv5chl=satshpv5 %>% tidyr::separate(SATDATA, sep=";", into=paste("v", 1:9, sep=''), convert=T) %>% dplyr::select(v1:v9)
+satv5chl[sapply(satv5chl, is.infinite)] <- NA
+satv5chl$med=apply(satv5chl[,1:9], 1, median, na.rm=T)
+### add back into original DF
+satshpv5$SATDATA_med=satv5chl$med
+### keep values with valid center pixel and at least 4 of 9 satellite cells from 3x3 area
+KH5=satshpv5 #%>% filter(!(is.na(SATDATA_0)), N>3)
+## replace Inf with NA for SATDATA_0 and SATDATA
+KH5$SATDATA_0[KH5$SATDATA_0==Inf]=NA # change to NA from Inf
+KH5$SATDATA_all=KH5$SATDATA_0 # copy center values to 'all' column
+## replace missing center values with median of 3x3 pixels
+KH5$SATDATA_all[is.na(KH5$SATDATA_all)]=KH5$SATDATA_med[is.na(KH5$SATDATA_all)]
+# test=KH5[1:100,]
+### drop bad satellite data no center or data in 3x3 window
+KH5f=KH5[complete.cases(KH5$SATDATA_all),]
+### deal with multiple depths and/or replicates from ship data
+# tunq=KH5f %>% group_by(SHIP_LAT, SHIP_LON, SHIP_DATE) %>% filter(n()==1) %>% mutate(shipnum=n())
+# tdup=KH5f %>% group_by(SHIP_LAT, SHIP_LON, SHIP_DATE) %>% filter(n()>1) %>% mutate(shipnum=n())
+# KH5mn=tdup %>% mutate_if(is.numeric, mean) %>% mutate_if(is.character, funs(paste(unique(.), collapse = "_"))) %>% slice(1)
+# KH5f2=bind_rows(tunq, KH5mn) %>% ungroup() #reassign name
+### select just needed cols, look for replicates, take mean
+KH5final=KH5f %>% 
+  dplyr::select(SHIP_LAT, SHIP_LON, SHIP_DATE, SAT_DATE, SAT_LAT_0, SAT_LON_0, N, SHIPDATA, SATDATA_0, SATDATA_all) %>% 
+  group_by(SHIP_LAT, SHIP_LON, SHIP_DATE) %>%
+  mutate_each(funs(mean), -(1:4)) %>%
+  distinct
+# test2=KH5final[1:100,]
+
+### Sample validation ###
+### plot sample locations for sat-ship matches
+## v4
+wd='/home/ryan/Git/JPSS_2/JPSS/'
+pdf(file=paste(wd,'OCCCI_satship_validation_compare_v42_v50_', xdt, '_', '.pdf', sep=''), height=4, width=6)
+map("worldHires", xlim=c(-77,-65),ylim=c(35,45), fill=T,border=0,col="gray70")
+map.axes(las=1)
+points(KH4final$SHIP_LON, KH4final$SHIP_LAT, pch=16)
+text(-76, 44, pos=4, 'v4.2 samples')
+## v5
+map("worldHires", xlim=c(-77,-65),ylim=c(35,45), fill=T,border=0,col="gray70")
+map.axes(las=1)
+points(KH5final$SHIP_LON, KH5final$SHIP_LAT, pch=16)
+text(-76, 44, pos=4, 'v5.0 samples')
+### barplot of year and month coverage
+barplot(table(year(KH4final$SHIP_DATE)), main="v4 year matchups")
+barplot(table(year(KH5final$SHIP_DATE)), main="v5 year matchups")
+barplot(table(month(KH4final$SHIP_DATE)), main="v4 month matchups")
+barplot(table(month(KH5final$SHIP_DATE)), main="v5 month matchups")
+### plot log in situ vs satellite values
+plot(log(KH5final$SATDATA_all) ~log(KH5final$SHIPDATA), type='p', main="OCCCI v5 median vs in situ chl", xlim=c(-4,4), ylim=c(-4,4)); abline(a=0, b=1)
+a=RMSE(o=log(KH5final$SHIPDATA) , m=log(KH5final$SATDATA_all))
+text(-2,3, paste('RMSE: ', round(a, digits=2),sep=''))
+text(-2,2, paste('N: ', dim(KH5final)[1],sep=''))
+plot(log(KH4final$SATDATA_all) ~log(KH4final$SHIPDATA), type='p', main="OCCCI v4.2 median vs in situ chl", xlim=c(-4,4), ylim=c(-4,4)); abline(a=0, b=1)
+a=RMSE(o=log(KH4final$SHIPDATA) , m=log(KH4final$SATDATA_all))
+text(-2,3, paste('RMSE: ', round(a, digits=2),sep=''))
+text(-2,2, paste('N: ', dim(KH4final)[1],sep=''))
+### Taylor Diagrams ###
+## satellite center pixel value or median of 3x3 pixels when no center available
+taylor.diagram(KH5final$SHIPDATA, KH5final$SATDATA_all, col='red', pos.cor=T, sd.arcs=T, show.gamma = T, main='Central or 3x3 Median')
+taylor.diagram(KH4final$SHIPDATA, KH4final$SATDATA_all, col='blue', add=T)
+legend(6,7,legend=c("v5.0","v4.2"),pch=19,col=c("red","blue"))
+## vs center pixel only
+taylor.diagram(KH5final$SHIPDATA, KH5final$SATDATA_0, col='red', pos.cor=T, sd.arcs=T, show.gamma = T, main='Center Only')
+taylor.diagram(KH4final$SHIPDATA, KH4final$SATDATA_0, col='blue', add=T)
+legend(6,7,legend=c("v5.0","v4.2"),pch=19,col=c("red","blue"))
+## log scaled center or median of 3x3
+taylor.diagram(log(KH5final$SHIPDATA), log(KH5final$SATDATA_all), col='red', pos.cor=T, sd.arcs=T, show.gamma = T, main='Log Central or 3x3 Median')
+taylor.diagram(log(KH4final$SHIPDATA), log(KH4final$SATDATA_all), col='blue', add=T)
+legend(1.5,1.5,legend=c("v5.0","v4.2"),pch=19,col=c("red","blue"))
+## log scaled center only
+taylor.diagram(log(KH5final$SHIPDATA), log(KH5final$SATDATA_0), col='red', pos.cor=T, sd.arcs=T, show.gamma = T, main='Log Center Only')
+taylor.diagram(log(KH4final$SHIPDATA), log(KH4final$SATDATA_0), col='blue', add=T)
+legend(1.5,1.5,legend=c("v5.0","v4.2"),pch=19,col=c("red","blue"))
+dev.off()
+
+#### NOW JUST COMPARE JPSS DATA ####
+### newest extracted values Apr 2021 from Audreys database of fluorometric + CTD + HPLC
+satshpv4eco=read.csv('/home/ryan/Git/JPSS_2/JPSS/2021 Extracted CHL/SATSHIP_MATCHIP-JPSS_ECOMON_EXTRACTED-CHLOR_A-CCI-OCCCI-SHIP_CHL.csv', 
+                     sep = ',', header=F, stringsAsFactors = F, skip=1)
+t=readLines('/home/ryan/Git/JPSS_2/JPSS/2021 Extracted CHL/SATSHIP_MATCHIP-JPSS_ECOMON_EXTRACTED-CHLOR_A-CCI-OCCCI-SHIP_CHL.csv', n=1)
+t2=strsplit(t, split=',')
+colnames(satshpv4eco)=unlist(t2)
+satshpv4eco$SHIP_DATE=format(satshpv4eco$SHIPDATE, scientific = F)
+satshpv4eco$SHIP_DATE=ymd_hms(satshpv4eco$SHIP_DATE)
+satshpv4eco$SAT_DATE=format(satshpv4eco$SATDATE, scientific = F)
+satshpv4eco$SAT_DATE=ymd_hms(satshpv4eco$SAT_DATE)
+## replace Inf with NA for string of 9 values for satellite 3x3 pixels, take median value
+satv4ecochl=satshpv4eco %>% tidyr::separate(SATDATA, sep=";", into=paste("v", 1:9, sep=''), convert=T) %>% dplyr::select(v1:v9)
+satv4ecochl[sapply(satv4ecochl, is.infinite)] <- NA
+satv4ecochl$med=apply(satv4ecochl[,1:9], 1, median, na.rm=T)
+### add back into original DF
+satshpv4eco$SATDATA_med=satv4ecochl$med
+### keep values with valid center pixel and at least 4eco of 9 satellite cells from 3x3 area
+KH4eco=satshpv4eco #%>% filter(!(is.na(SATDATA_0)), N>3)
+## replace Inf with NA for SATDATA_0 and SATDATA
+KH4eco$SATDATA_0[KH4eco$SATDATA_0==Inf]=NA # change to NA from Inf
+KH4eco$SATDATA_all=KH4eco$SATDATA_0 # copy center values to 'all' column
+## replace missing center values with median of 3x3 pixels
+KH4eco$SATDATA_all[is.na(KH4eco$SATDATA_all)]=KH4eco$SATDATA_med[is.na(KH4eco$SATDATA_all)]
+test=KH4eco[1:100,]
+### drop bad satellite data no center or data in 3x3 window
+KH4ecof=KH4eco[complete.cases(KH4eco$SATDATA_all),]
+### deal with multiple depths and/or replicates from ship data
+# tunq=KH4ecof %>% group_by(SHIP_LAT, SHIP_LON, SHIP_DATE) %>% filter(n()==1) %>% mutate(shipnum=n())
+# tdup=KH4ecof %>% group_by(SHIP_LAT, SHIP_LON, SHIP_DATE) %>% filter(n()>1) %>% mutate(shipnum=n())
+# KH4ecomn=tdup %>% mutate_if(is.numeric, mean) %>% mutate_if(is.character, funs(paste(unique(.), collapse = "_"))) %>% slice(1)
+# KH4ecof2=bind_rows(tunq, KH4ecomn) %>% ungroup() #reassign name
+### select just needed cols, look for replicates, take mean
+KH4ecofinal=KH4ecof %>% 
+  dplyr::select(SHIP_LAT, SHIP_LON, SHIP_DATE, SAT_DATE, SAT_LAT_0, SAT_LON_0, N, SHIPDATA, SATDATA_0, SATDATA_all) %>% 
+  group_by(SHIP_LAT, SHIP_LON, SHIP_DATE) %>%
+  mutate_each(funs(mean), -(1:4)) %>%
+  distinct
+# test2=KH4ecofinal[1:100,]
+### newest extracted values Apr 2021 from Audreys database of fluorometric + CTD + HPLC
+satshpv5eco=read.csv('/home/ryan/Git/JPSS_2/JPSS/2021 Extracted CHL/SATSHIP_MATCHIP-JPSS_ECOMON_EXTRACTED-CHLOR_A-CCI-OCCCI_V5.0-SHIP_CHL.csv', 
+                     sep = ',', header=F, stringsAsFactors = F, skip=1)
+t=readLines('/home/ryan/Git/JPSS_2/JPSS/2021 Extracted CHL/SATSHIP_MATCHIP-JPSS_ECOMON_EXTRACTED-CHLOR_A-CCI-OCCCI_V5.0-SHIP_CHL.csv', n=1)
+t2=strsplit(t, split=',')
+colnames(satshpv5eco)=unlist(t2)
+satshpv5eco$SHIP_DATE=format(satshpv5eco$SHIPDATE, scientific = F)
+satshpv5eco$SHIP_DATE=ymd_hms(satshpv5eco$SHIP_DATE)
+satshpv5eco$SAT_DATE=format(satshpv5eco$SATDATE, scientific = F)
+satshpv5eco$SAT_DATE=ymd_hms(satshpv5eco$SAT_DATE)
+## replace Inf with NA for string of 9 values for satellite 3x3 pixels, take median value
+satv5ecochl=satshpv5eco %>% tidyr::separate(SATDATA, sep=";", into=paste("v", 1:9, sep=''), convert=T) %>% dplyr::select(v1:v9)
+satv5ecochl[sapply(satv5ecochl, is.infinite)] <- NA
+satv5ecochl$med=apply(satv5ecochl[,1:9], 1, median, na.rm=T)
+### add back into original DF
+satshpv5eco$SATDATA_med=satv5ecochl$med
+### keep values with valid center pixel and at least 5eco of 9 satellite cells from 3x3 area
+KH5eco=satshpv5eco #%>% filter(!(is.na(SATDATA_0)), N>3)
+## replace Inf with NA for SATDATA_0 and SATDATA
+KH5eco$SATDATA_0[KH5eco$SATDATA_0==Inf]=NA # change to NA from Inf
+KH5eco$SATDATA_all=KH5eco$SATDATA_0 # copy center values to 'all' column
+## replace missing center values with median of 3x3 pixels
+KH5eco$SATDATA_all[is.na(KH5eco$SATDATA_all)]=KH5eco$SATDATA_med[is.na(KH5eco$SATDATA_all)]
+# test=KH5eco[1:100,]
+### drop bad satellite data no center or data in 3x3 window
+KH5ecof=KH5eco[complete.cases(KH5eco$SATDATA_all),]
+### deal with multiple depths and/or replicates from ship data
+# tunq=KH5ecof %>% group_by(SHIP_LAT, SHIP_LON, SHIP_DATE) %>% filter(n()==1) %>% mutate(shipnum=n())
+# tdup=KH5ecof %>% group_by(SHIP_LAT, SHIP_LON, SHIP_DATE) %>% filter(n()>1) %>% mutate(shipnum=n())
+# KH5ecomn=tdup %>% mutate_if(is.numeric, mean) %>% mutate_if(is.character, funs(paste(unique(.), collapse = "_"))) %>% slice(1)
+# KH5ecof2=bind_rows(tunq, KH5ecomn) %>% ungroup() #reassign name
+### select just needed cols, look for replicates, take mean
+KH5ecofinal=KH5ecof %>% 
+  dplyr::select(SHIP_LAT, SHIP_LON, SHIP_DATE, SAT_DATE, SAT_LAT_0, SAT_LON_0, N, SHIPDATA, SATDATA_0, SATDATA_all) %>% 
+  group_by(SHIP_LAT, SHIP_LON, SHIP_DATE) %>%
+  mutate_each(funs(mean), -(1:4)) %>%
+  distinct
+# test2=KH5ecofinal[1:100,]
+
+
+wd='/home/ryan/Git/JPSS_2/JPSS/'
+pdf(file=paste(wd,'OCCCI_satship_validation_compare_v42_v50_JPSS_only', xdt, '_', '.pdf', sep=''), height=4, width=6)
+map("worldHires", xlim=c(-77,-65),ylim=c(35,45), fill=T,border=0,col="gray70")
+map.axes(las=1)
+points(KH4ecofinal$SHIP_LON, KH4ecofinal$SHIP_LAT, pch=16)
+text(-76, 44, pos=4, 'v4.2 samples')
+## v5
+map("worldHires", xlim=c(-77,-65),ylim=c(35,45), fill=T,border=0,col="gray70")
+map.axes(las=1)
+points(KH5ecofinal$SHIP_LON, KH5ecofinal$SHIP_LAT, pch=16)
+text(-76, 44, pos=4, 'v5.0 samples')
+### barplot of year and month coverage
+barplot(table(year(KH4ecofinal$SHIP_DATE)), main="v4 year matchups")
+barplot(table(year(KH5ecofinal$SHIP_DATE)), main="v5 year matchups")
+barplot(table(month(KH4ecofinal$SHIP_DATE)), main="v4 month matchups")
+barplot(table(month(KH5ecofinal$SHIP_DATE)), main="v5 month matchups")
+### plot log in situ vs satellite values
+plot(log(KH5ecofinal$SATDATA_all) ~log(KH5ecofinal$SHIPDATA), type='p', main="OCCCI v5 median vs in situ chl", xlim=c(-4,4), ylim=c(-4,4)); abline(a=0, b=1)
+a=RMSE(o=log(KH5ecofinal$SHIPDATA) , m=log(KH5ecofinal$SATDATA_all))
+text(-2,3, paste('RMSE: ', round(a, digits=2),sep=''))
+text(-2,2, paste('N: ', dim(KH5ecofinal)[1],sep=''))
+plot(log(KH4ecofinal$SATDATA_all) ~log(KH4ecofinal$SHIPDATA), type='p', main="OCCCI v4.2 median vs in situ chl", xlim=c(-4,4), ylim=c(-4,4)); abline(a=0, b=1)
+a=RMSE(o=log(KH4ecofinal$SHIPDATA) , m=log(KH4ecofinal$SATDATA_all))
+text(-2,3, paste('RMSE: ', round(a, digits=2),sep=''))
+text(-2,2, paste('N: ', dim(KH4ecofinal)[1],sep=''))
+### Taylor Diagrams ###
+## satellite center pixel value or median of 3x3 pixels when no center available
+taylor.diagram(KH5ecofinal$SHIPDATA, KH5ecofinal$SATDATA_all, col='red', pos.cor=T, sd.arcs=T, show.gamma = T, main='Central or 3x3 Median')
+taylor.diagram(KH4ecofinal$SHIPDATA, KH4ecofinal$SATDATA_all, col='blue', add=T)
+legend(1.5,1.5,legend=c("v5.0","v4.2"),pch=19,col=c("red","blue"))
+## vs center pixel only
+taylor.diagram(KH5ecofinal$SHIPDATA, KH5ecofinal$SATDATA_0, col='red', pos.cor=T, sd.arcs=T, show.gamma = T, main='Center Only')
+taylor.diagram(KH4ecofinal$SHIPDATA, KH4ecofinal$SATDATA_0, col='blue', add=T)
+legend(1.5,1.5,legend=c("v5.0","v4.2"),pch=19,col=c("red","blue"))
+## log scaled center or median of 3x3
+taylor.diagram(log(KH5ecofinal$SHIPDATA), log(KH5ecofinal$SATDATA_all), col='red', pos.cor=T, sd.arcs=T, show.gamma = T, main='Log Central or 3x3 Median')
+taylor.diagram(log(KH4ecofinal$SHIPDATA), log(KH4ecofinal$SATDATA_all), col='blue', add=T)
+legend(1,1,legend=c("v5.0","v4.2"),pch=19,col=c("red","blue"))
+## log scaled center only
+taylor.diagram(log(KH5ecofinal$SHIPDATA), log(KH5ecofinal$SATDATA_0), col='red', pos.cor=T, sd.arcs=T, show.gamma = T, main='Log Center Only')
+taylor.diagram(log(KH4ecofinal$SHIPDATA), log(KH4ecofinal$SATDATA_0), col='blue', add=T)
+legend(1,1,legend=c("v5.0","v4.2"),pch=19,col=c("red","blue"))
+dev.off()
+#________________________________________________________________________________________________
+
 ### read sat-ship matchup file from Kyle turner
 ktsatmat=readxl::read_excel('/home/ryan/Downloads/nes_insitu_satellite_chl_upper10m.xlsx', na="NaN", 
                             col_types=c('numeric', 'numeric', 'guess', 'numeric', 'text', 'numeric','numeric','numeric','numeric','numeric','numeric','numeric','numeric'))
-
 
 ### Turner merge v5 sat-matchups from Kim
 ktest5=left_join(tv5,ktsatmat, by=c("date"="datetime", "SHIP_LAT"="lat", "SHIP_LON"="lon"))
@@ -223,7 +478,6 @@ map.axes(las=1)
 points(v4full$SHIP_LON, v4full$SHIP_LAT, pch=16)
 text(-68,38, paste('N: ', dim(v4full)[1],sep=''))
 
-library(plotrix)
 ## median of 3x3 pixels
 taylor.diagram(v4full$insituchl, v4full$SAT_MED_CHLOR, col='red', pos.cor=T, sd.arcs=T, show.gamma = T)
 taylor.diagram(v5full$insituchl, v5full$SAT_MED_CHLOR, col='blue', add=T)

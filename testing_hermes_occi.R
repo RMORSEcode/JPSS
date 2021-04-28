@@ -84,6 +84,8 @@ nc1=nc_open('/home/ryan/Git/JPSS/CCI_ALL-v5.0-8DAY (3).nc') # v5.0 20201220 down
 setwd("C:/Users/ryan.morse/Desktop/NES_5area")
 nes.five=rgdal::readOGR('nes_gbk_gome_gomw_mabn_mabsPoly.shp')
 
+### Read in OCCI data
+nc1=nc_open('C:/Users/ryan.morse/Documents/GitHub/JPSS/CCI_ALL-v4.2-8DAY.nc') #udpated with data fix 2019
 lon.occi=ncvar_get(nc1, 'lon')
 lat.occi=ncvar_get(nc1, 'lat')
 chl.occi=ncvar_get(nc1, 'chlor_a')
