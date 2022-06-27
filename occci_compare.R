@@ -170,7 +170,7 @@ KH4f=KH4[complete.cases(KH4$SATDATA_all),]
 # KH4f2=bind_rows(tunq, KH4mn) %>% ungroup() #reassign name
 ### select just needed cols, look for replicates, take mean
 KH4final=KH4f %>% 
-  dplyr::select(SHIP_LAT, SHIP_LON, SHIP_DATE, SAT_DATE, SAT_LAT_0, SAT_LON_0, N, SHIPDATA, SATDATA_0, SATDATA_all) %>% 
+  dplyr::select(SHIP_LAT, SHIP_LON, SHIP_DATE, SAT_DATE, SAT_LAT_0, SAT_LON_0, N, SHIPDATA, SATDATA_0, SATDATA_med) %>% 
   group_by(SHIP_LAT, SHIP_LON, SHIP_DATE) %>%
   mutate_each(funs(mean), -(1:4)) %>%
   distinct
@@ -209,11 +209,139 @@ KH5f=KH5[complete.cases(KH5$SATDATA_all),]
 # KH5f2=bind_rows(tunq, KH5mn) %>% ungroup() #reassign name
 ### select just needed cols, look for replicates, take mean
 KH5final=KH5f %>% 
-  dplyr::select(SHIP_LAT, SHIP_LON, SHIP_DATE, SAT_DATE, SAT_LAT_0, SAT_LON_0, N, SHIPDATA, SATDATA_0, SATDATA_all) %>% 
+  dplyr::select(SHIP_LAT, SHIP_LON, SHIP_DATE, SAT_DATE, SAT_LAT_0, SAT_LON_0, N, SHIPDATA, SATDATA_0, SATDATA_med) %>% 
   group_by(SHIP_LAT, SHIP_LON, SHIP_DATE) %>%
   mutate_each(funs(mean), -(1:4)) %>%
   distinct
 # test2=KH5final[1:100,]
+
+### Read in Hermes extracted data (GSM and AV 20210614) ###
+## Hermes GSM
+satshpgsm=read.csv('/home/ryan/Downloads/SATSHIP_MATCHIP-JPSS_SEABASS_EXTRACTED_CHL-CHLOR_A-GSM-HERMES-SHIP_CHL.csv',
+                   sep = ',', header=F, stringsAsFactors = F, skip=1)
+satshpgsm=read.csv('/home/ryan/Downloads/SATSHIP_MATCHIP-JPSS_ECOMON_EXTRACTED-CHLOR_A-GSM-HERMES-SHIP_CHL.csv',
+                   sep = ',', header=F, stringsAsFactors = F, skip=1)
+t=readLines('/home/ryan/Downloads/SATSHIP_MATCHIP-JPSS_ECOMON_EXTRACTED-CHLOR_A-GSM-HERMES-SHIP_CHL.csv', n=1)
+t2=strsplit(t, split=',')
+colnames(satshpgsm)=unlist(t2)
+satshpgsm$SHIP_DATE=format(satshpgsm$SHIPDATE, scientific = F)
+satshpgsm$SHIP_DATE=ymd_hms(satshpgsm$SHIP_DATE)
+satshpgsm$SAT_DATE=format(satshpgsm$SATDATE, scientific = F)
+satshpgsm$SAT_DATE=ymd_hms(satshpgsm$SAT_DATE)
+## replace Inf with NA for string of 9 values for satellite 3x3 pixels, take median value
+satgsm=satshpgsm %>% tidyr::separate(SATDATA, sep=";", into=paste("v", 1:9, sep=''), convert=T) %>% dplyr::select(v1:v9)
+satgsm[sapply(satgsm, is.infinite)] <- NA
+satgsm$med=apply(satgsm[,1:9], 1, median, na.rm=T)
+### add back into original DF
+satshpgsm$SATDATA_med=satgsm$med
+### keep values with valid center pixel and at least 4 of 9 satellite cells from 3x3 area
+KHgsm=satshpgsm #%>% filter(!(is.na(SATDATA_0)), N>3)
+## replace Inf with NA for SATDATA_0 and SATDATA
+KHgsm$SATDATA_0[KHgsm$SATDATA_0==Inf]=NA # change to NA from Inf
+KHgsm$SATDATA_all=KHgsm$SATDATA_0 # copy center values to 'all' column
+## replace missing center values with median of 3x3 pixels
+KHgsm$SATDATA_all[is.na(KHgsm$SATDATA_all)]=KHgsm$SATDATA_med[is.na(KHgsm$SATDATA_all)]
+### drop bad satellite data no center or data in 3x3 window
+KHgsmf=KHgsm[complete.cases(KHgsm$SATDATA_all),]
+### select just needed cols, look for replicates, take mean
+KHgsmfinal=KHgsmf %>% 
+  dplyr::select(SHIP_LAT, SHIP_LON, SHIP_DATE, SAT_DATE, SAT_LAT_0, SAT_LON_0, N, SHIPDATA, SATDATA_0, SATDATA_med) %>% 
+  group_by(SHIP_LAT, SHIP_LON, SHIP_DATE) %>%
+  mutate_each(funs(mean), -(1:4)) %>%
+  distinct
+
+## Hermes AV
+satshpav=read.csv('/home/ryan/Downloads/SATSHIP_MATCHIP-JPSS_SEABASS_EXTRACTED_CHL-CHLOR_A-AV-HERMES-SHIP_CHL.csv',
+                   sep = ',', header=F, stringsAsFactors = F, skip=1)
+satshpav=read.csv('/home/ryan/Downloads/SATSHIP_MATCHIP-JPSS_ECOMON_EXTRACTED-CHLOR_A-AV-HERMES-SHIP_CHL.csv',
+                   sep = ',', header=F, stringsAsFactors = F, skip=1)
+t=readLines('/home/ryan/Downloads/SATSHIP_MATCHIP-JPSS_ECOMON_EXTRACTED-CHLOR_A-AV-HERMES-SHIP_CHL.csv', n=1)
+t2=strsplit(t, split=',')
+colnames(satshpav)=unlist(t2)
+satshpav$SHIP_DATE=format(satshpav$SHIPDATE, scientific = F)
+satshpav$SHIP_DATE=ymd_hms(satshpav$SHIP_DATE)
+satshpav$SAT_DATE=format(satshpav$SATDATE, scientific = F)
+satshpav$SAT_DATE=ymd_hms(satshpav$SAT_DATE)
+## replace Inf with NA for string of 9 values for satellite 3x3 pixels, take median value
+satav=satshpav %>% tidyr::separate(SATDATA, sep=";", into=paste("v", 1:9, sep=''), convert=T) %>% dplyr::select(v1:v9)
+satav[sapply(satav, is.infinite)] <- NA
+satav$med=apply(satav[,1:9], 1, median, na.rm=T)
+### add back into original DF
+satshpav$SATDATA_med=satav$med
+### keep values with valid center pixel and at least 4 of 9 satellite cells from 3x3 area
+KHav=satshpav #%>% filter(!(is.na(SATDATA_0)), N>3)
+## replace Inf with NA for SATDATA_0 and SATDATA
+KHav$SATDATA_0[KHav$SATDATA_0==Inf]=NA # change to NA from Inf
+KHav$SATDATA_all=KHav$SATDATA_0 # copy center values to 'all' column
+## replace missing center values with median of 3x3 pixels
+KHav$SATDATA_all[is.na(KHav$SATDATA_all)]=KHav$SATDATA_med[is.na(KHav$SATDATA_all)]
+### drop bad satellite data no center or data in 3x3 window
+KHavf=KHav[complete.cases(KHav$SATDATA_all),]
+### select just needed cols, look for replicates, take mean
+KHavfinal=KHavf %>% 
+  dplyr::select(SHIP_LAT, SHIP_LON, SHIP_DATE, SAT_DATE, SAT_LAT_0, SAT_LON_0, N, SHIPDATA, SATDATA_0, SATDATA_med) %>% 
+  group_by(SHIP_LAT, SHIP_LON, SHIP_DATE) %>%
+  mutate_each(funs(mean), -(1:4)) %>%
+  distinct
+
+
+## satellite center pixel value or median of 3x3 pixels when no center available
+# taylor.diagram(KHgsmfinal$SHIPDATA, KHgsmfinal$SATDATA_all, col='red', pos.cor=T, sd.arcs=T, show.gamma = T, main='Central or 3x3 Median')
+# taylor.diagram(KHavfinal$SHIPDATA, KHavfinal$SATDATA_all, col='blue', add=T)
+# legend(1.5,1.5,legend=c("gsm","av"),pch=19,col=c("red","blue"))
+
+v5=ungroup(KH5final)
+v4=ungroup(KH4final)
+vg=ungroup(KHgsmfinal)
+va=ungroup(KHavfinal)
+
+### merge all data sets and subset to common dates between 4 versions
+df2=v5 %>% left_join(dplyr::select(v4, SHIP_DATE, SATDATA_0, SATDATA_med), by="SHIP_DATE")
+df3=df2 %>% left_join(dplyr::select(vg, SHIP_DATE, SATDATA_0, SATDATA_med), by="SHIP_DATE")
+df4=df3 %>% left_join(dplyr::select(va, SHIP_DATE, SATDATA_0, SATDATA_med), by="SHIP_DATE")
+df5=df4[complete.cases(df4),]
+
+### REMOVE replicate values, take mean of replicates
+tunq=df5 %>% group_by(SHIP_LAT, SHIP_LON, SAT_DATE) %>% filter(n()==1) %>% mutate(num=n())
+tdup=df5 %>% group_by(SHIP_LAT, SHIP_LON, SAT_DATE) %>% filter(n()>1) %>% mutate(num=n())
+tdupmn=tdup %>% mutate_if(is.numeric, mean) %>% mutate_if(is.character, funs(paste(unique(.), collapse = "_"))) %>% slice(1)
+df5x=bind_rows(tunq, tdupmn) %>% ungroup() #reassign name
+
+pdf(file=paste(wd,'OCCCI_satship_validation_compare_OCCCI_Hermes_2', xdt, '_', '.pdf', sep=''), height=4, width=6)
+#plot sat center values
+taylor.diagram(df5x$SHIPDATA, df5x$SATDATA_0.x, col='red', pos.cor=T, sd.arcs=T, show.gamma = T, main='Central value')
+taylor.diagram(df5x$SHIPDATA, df5x$SATDATA_0.y, col='blue', add=T)
+taylor.diagram(df5x$SHIPDATA, df5x$SATDATA_0.x.x, col='green', add=T)
+taylor.diagram(df5x$SHIPDATA, df5x$SATDATA_0.y.y, col='black', add=T)
+legend(4,5,legend=c("OCCCI v 5.0", "OCCCI v 4.2","Hermes GSM","Hermes AV"),pch=19,col=c("red","blue", "green", "black"),bty='n')
+#plot median value
+taylor.diagram(df5x$SHIPDATA, df5x$SATDATA_med.x, col='red', pos.cor=T, sd.arcs=T, show.gamma = T, main='3x3 Median value')
+taylor.diagram(df5x$SHIPDATA, df5x$SATDATA_med.y, col='blue', add=T)
+taylor.diagram(df5x$SHIPDATA, df5x$SATDATA_med.x.x, col='green', add=T)
+taylor.diagram(df5x$SHIPDATA, df5x$SATDATA_med.y.y, col='black', add=T)
+legend(4,5,legend=c("OCCCI v 5.0", "OCCCI v 4.2","Hermes GSM","Hermes AV"),pch=19,col=c("red","blue", "green", "black"),bty='n')
+
+txtmat=matrix(NA,nrow=4, ncol=2)
+colnames(txtmat)=c('Model', 'RMSE')
+txtmat[1,1]='OCCCI v5'
+txtmat[2,1]='OCCCI v4.2'
+txtmat[3,1]='Hermes GSM'
+txtmat[4,1]='Hermes AV'
+txtmat[1,2]=round(RMSE(df5x$SATDATA_0.x, df5x$SHIPDATA), 3) #v5
+txtmat[2,2]=round(RMSE(df5x$SATDATA_0.y, df5x$SHIPDATA), 3)  #v4
+txtmat[3,2]=round(RMSE(df5x$SATDATA_0.x.x, df5x$SHIPDATA), 3)  #gsm
+txtmat[4,2]=round(RMSE(df5x$SATDATA_0.y.y, df5x$SHIPDATA), 3)  #av
+gplots::textplot(txtmat)
+
+barplot(table(year(df5x$SHIP_DATE)), main="N years")
+barplot(table(month(df5x$SHIP_DATE)), main="N months")
+map("worldHires", xlim=c(-77,-65),ylim=c(35,45), fill=T,border=0,col="gray70")
+map.axes(las=1)
+points(df5x$SHIP_LON, df5x$SHIP_LAT, pch=16)
+text(-76, 44, pos=4, paste(dim(df5x)[1],' samples', sep=''))
+dev.off()
+
+
 
 ### Sample validation ###
 ### plot sample locations for sat-ship matches
